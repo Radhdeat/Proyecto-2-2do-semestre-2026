@@ -1,0 +1,9 @@
+{
+  "duracionSegundos": 120,
+  "cerebrosIniciales": 150,
+  "jardin": [
+    ["VACIO", "VACIO", "VACIO", "VACIO", "LANZAGUISANTES"],
+    ["VACIO", "VACIO", "VACIO", "VACIO", "LANZAGUISANTES"],
+    ["VACIO", "VACIO", "VACIO", "VACIO", "LANZAGUISANTES"]
+  ]
+}
