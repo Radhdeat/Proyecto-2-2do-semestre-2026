@@ -1,5 +1,6 @@
 package Frontend.Jardin;
 
+import Backend.Modelo.Entidades.Zombis.Cerebro;
 import Frontend.Menu.MenuInicio;
 import Frontend.Menu.VentanaPrincipal;
 
@@ -23,6 +24,11 @@ public class PanelPartida extends JPanel {
     private String zombiSeleccionado;
     private String dificultadJuego;
 
+    // Atributos privados (Cumpliendo el encapsulamiento estricto)
+    private int cerebrosJugador; // Cantidad actual de cerebros del jugador
+    private Cerebro[] listaCerebros; // Arreglo nativo en lugar de ArrayList
+    private int totalCerebrosActivos = 0;
+
     public PanelPartida(VentanaPrincipal ventana, String[][] jardinDatos, int duracionSegundos, int cerebrosIniciales, String dificultad) {
         this.ventana = ventana;
         this.segundosRestantes = duracionSegundos;
@@ -30,6 +36,9 @@ public class PanelPartida extends JPanel {
         this.dificultadJuego = (dificultad != null && !dificultad.isEmpty()) ? dificultad : "Medio";
         this.juegoActivo = true;
         this.zombiSeleccionado = null;
+
+        this.cerebrosJugador = cerebrosIniciales; // Viene del JSON
+        this.listaCerebros = new Cerebro[50]; // Tamaño máximo fijo para evitar Collections
 
         setSize(1000, 600);
         setLayout(null);
