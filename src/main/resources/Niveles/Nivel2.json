@@ -2,7 +2,7 @@
   "duracionSegundos": 180,
   "cerebrosIniciales": 200,
   "jardin": [
-    ["VACIO", "VACIO", "VACIO", "CARRONIVORA", "LANZAGUISANTES"],
+    ["VACIO", "VACIO", "VACIO", "CARRONIVORA", "HIELAGUISANTES"],
     ["VACIO", "VACIO", "VACIO", "PATATAPUM", "HIELAGUISANTES"],
     ["VACIO", "VACIO", "VACIO", "NUEZ", "LANZAGUISANTES"],
     ["VACIO", "VACIO", "VACIO", "PINCHOHIERBA", "LANZAGUISANTES"]

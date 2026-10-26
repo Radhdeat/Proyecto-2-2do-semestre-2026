@@ -22,7 +22,7 @@ public class PanelCargarPartida extends JPanel {
 
         // Asegúrate de cambiar la ruta por el nombre exacto de tu nueva imagen de fondo
         fondo = new ImageIcon(
-                "src/main/resources/cargar.png"
+                "src/main/resources/Fondos/cargar.png"
         ).getImage();
 
         construirInterfaz();

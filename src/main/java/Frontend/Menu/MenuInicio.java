@@ -40,6 +40,7 @@ public class MenuInicio extends JPanel {
 
             // Trabajamos la imagenes como icocnos y esta busca la imagen desde la ruta
             ImageIcon iconoOriginal = new ImageIcon(ruta);
+
             /*
             / recibe la imagne y le asigna un tamaño
             / Image.SCALE_SMOOTH solicita un escalado suave para intentar conservar una apariencia visual de mejor calidad.

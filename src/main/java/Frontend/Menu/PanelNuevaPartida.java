@@ -28,7 +28,7 @@ public class PanelNuevaPartida extends JPanel {
 
         // Actualizado al nombre de tu nueva imagen de fondo
         imagenFondo = new ImageIcon(
-                "src/main/resources/nueva.png"
+                "src/main/resources/Fondos/nueva.png"
         ).getImage();
 
         construirInterfaz();

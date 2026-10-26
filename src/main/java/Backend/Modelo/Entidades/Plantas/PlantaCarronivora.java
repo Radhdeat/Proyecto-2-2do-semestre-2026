@@ -1,26 +1,68 @@
 package Backend.Modelo.Entidades.Plantas;
 
 public class PlantaCarronivora extends Planta {
+
+    // atributos
     private boolean digiriendo;
-    private int tiempoDigestion;
-    private int danioZombistein = 200;
+    private long inicioDigestion;
+
+    private static final int TIEMPO_DIGESTION = 8;
+    private static final int DAÑO_ZOMBISTEIN = 200;
 
     public PlantaCarronivora(int fila, int columna) {
-        super(100, fila, columna); // 100 puntos de salud[cite: 5]
+
+        super(100, fila, columna);
+
         this.digiriendo = false;
-        this.tiempoDigestion = 8; // Tarda 8 segundos en tragárselo[cite: 5]
+        this.inicioDigestion = 0;
     }
 
     @Override
     public void actuar() {
-        if (digiriendo) {
-            tiempoDigestion--;
-            if (tiempoDigestion <= 0) {
-                digiriendo = false;
-            }
+
+        if (!estaViva() || !digiriendo) {
+            return;
         }
-        // Engulle zombis enteros en su casilla o al frente[cite: 5]
+
+        long tiempoActual = System.currentTimeMillis();
+
+        long tiempoTranscurrido =
+                tiempoActual - inicioDigestion;
+
+        if (tiempoTranscurrido >= TIEMPO_DIGESTION * 1000L) {
+
+            digiriendo = false;
+            inicioDigestion = 0;
+
+            System.out.println(
+                    "Planta carnívora lista para atacar nuevamente."
+            );
+        }
     }
 
-    public boolean isDigiriendo() { return digiriendo; }
+    public void comenzarDigestion() {
+
+        if (digiriendo || !estaViva()) {
+            return;
+        }
+
+        digiriendo = true;
+        inicioDigestion = System.currentTimeMillis();
+
+        System.out.println(
+                "Planta carnívora comenzó a digerir."
+        );
+    }
+
+    public boolean isDigiriendo() {
+        return digiriendo;
+    }
+
+    public boolean puedeAtacar() {
+        return estaViva() && !digiriendo;
+    }
+
+    public int getDañoZombistein() {
+        return DAÑO_ZOMBISTEIN;
+    }
 }

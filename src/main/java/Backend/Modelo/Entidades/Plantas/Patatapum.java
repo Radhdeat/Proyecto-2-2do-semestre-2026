@@ -1,27 +1,49 @@
 package Backend.Modelo.Entidades.Plantas;
 
 public class Patatapum extends Planta {
-    private boolean activa;
-    private int segundosTranscurridos;
-    private final int tiempoPreparacion = 10;
-    private int danioExplosion = 100;
 
+    // atributos
+    private boolean activa;
+    private long tiempoCreacion;
+
+    private static final int TIEMPO_PREPARACION = 10;
+    private static final int DAÑO_EXPLOSION = 100;
+
+    // constuctor
     public Patatapum(int fila, int columna) {
-        super(50, fila, columna); // 50 puntos de salud[cite: 4]
+
+        super(50, fila, columna);
+
         this.activa = false;
-        this.segundosTranscurridos = 0;
+        // tiempro en segundos
+        this.tiempoCreacion = System.currentTimeMillis();
     }
 
+    // ataca de maneta distinta
     @Override
     public void actuar() {
-        if (!activa) {
-            segundosTranscurridos++;
-            if (segundosTranscurridos >= tiempoPreparacion) {
-                activa = true; // Tiempo de preparación de 10 segundos cumplido[cite: 4]
-            }
+
+        if (activa || !estaViva()) {
+            return;
+        }
+
+        long tiempoActual = System.currentTimeMillis();
+
+        long tiempoTranscurrido = tiempoActual - tiempoCreacion;
+
+        if (tiempoTranscurrido >= TIEMPO_PREPARACION * 1000L) {
+
+            activa = true;
+
+            System.out.println("Patatapum activada en fila " + (fila + 1) + ", columna " + (columna + 1));
         }
     }
 
-    public boolean isActiva() { return activa; }
-    public int getDanioExplosion() { return danioExplosion; }
+    public boolean isActiva() {
+        return activa;
+    }
+
+    public int getDanioExplosion() {
+        return DAÑO_EXPLOSION;
+    }
 }

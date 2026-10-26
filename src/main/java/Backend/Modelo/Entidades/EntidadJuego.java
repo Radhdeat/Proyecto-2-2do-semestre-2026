@@ -2,12 +2,14 @@ package Backend.Modelo.Entidades;
 
 public abstract class EntidadJuego {
 
+    // atributos
     protected int vida;
     protected int vidaMaxima;
     protected int fila;
     protected int columna;
     protected boolean estaViva;
 
+    //constructor
     public EntidadJuego(int vidaMaxima, int fila, int columna) {
         this.vidaMaxima = vidaMaxima;
         this.vida = vidaMaxima;
@@ -16,7 +18,8 @@ public abstract class EntidadJuego {
         this.estaViva = true;
     }
 
-    public void recibirDano(int cantidad) {
+    // metodo para el daño
+    public void recibirDaño(int cantidad) {
         this.vida -= cantidad;
         if (this.vida <= 0) {
             this.vida = 0;

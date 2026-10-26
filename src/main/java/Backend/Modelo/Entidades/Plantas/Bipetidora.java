@@ -1,16 +1,18 @@
 package Backend.Modelo.Entidades.Plantas;
 
+// clase heredada
 public class Bipetidora extends Planta {
-    private int danioProyectil = 15;
+
+    private int dañoProyectil = 15;
 
     public Bipetidora(int fila, int columna) {
-        super(100, fila, columna); // 100 puntos de salud[cite: 5]
+        super(100, fila, columna);
     }
 
     @Override
     public void actuar() {
-        // Cabeza frontal dispara hacia la entrada y cabeza trasera dispara hacia atrás[cite: 5]
     }
 
-    public int getDanioProyectil() { return danioProyectil; }
+    public int getDañoProyectil() { return dañoProyectil; }
+
 }

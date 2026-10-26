@@ -1,17 +1,19 @@
 package Backend.Modelo.Entidades.Plantas;
 
 public class Hielaguisantes extends Planta {
-    private int danioProyectil = 15;
+
+    // atributos
+    private int dañoProyectil = 15;
     private double cadencia = 1.5;
 
     public Hielaguisantes(int fila, int columna) {
-        super(100, fila, columna); // 100 puntos de salud[cite: 4]
+        super(100, fila, columna);
     }
 
     @Override
     public void actuar() {
-        // Lanza proyectiles congelantes que restan HP y ralentizan al zombi un 40%[cite: 4]
     }
 
-    public int getDanioProyectil() { return danioProyectil; }
+
+    public int getDañoProyectil() { return dañoProyectil; }
 }

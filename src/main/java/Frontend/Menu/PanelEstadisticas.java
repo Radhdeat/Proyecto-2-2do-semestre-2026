@@ -25,7 +25,7 @@ public class PanelEstadisticas extends JPanel {
 
         // Carga de la nueva imagen de fondo de estadísticas
         imagenFondo = new ImageIcon(
-                "src/main/resources/estadisticas.png"
+                "src/main/resources/Fondos/estadisticas.png"
         ).getImage();
 
         construirInterfaz();

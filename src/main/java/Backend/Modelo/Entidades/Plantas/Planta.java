@@ -1,11 +1,13 @@
 package Backend.Modelo.Entidades.Plantas;
 
 public abstract class Planta {
+    // atributos
     protected int salud;
     protected int saludMaxima;
     protected int fila;
     protected int columna;
 
+    // constructor
     public Planta(int salud, int fila, int columna) {
         this.salud = salud;
         this.saludMaxima = salud;
@@ -13,15 +15,18 @@ public abstract class Planta {
         this.columna = columna;
     }
 
+    // abstracto ya que cada una hace algo distinto
     public abstract void actuar();
 
-    public void recibirDanio(int cantidad) {
+    // pero todas reciben daño igual
+    public void recibirDaño(int cantidad) {
         this.salud -= cantidad;
         if (this.salud < 0) {
             this.salud = 0;
         }
     }
 
+    // se revisa si esta viva
     public boolean estaViva() {
         return this.salud > 0;
     }
