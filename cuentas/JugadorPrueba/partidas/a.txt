@@ -1,0 +1,5 @@
+dificultad=Fácil
+nivelPath=C:\Users\calde\OneDrive\Escritorio\Proyecto2\src\main\resources\Niveles\Nivel2.json
+zombisInvocados=0
+cerebrosGastados=0
+plantasDestruidas=0

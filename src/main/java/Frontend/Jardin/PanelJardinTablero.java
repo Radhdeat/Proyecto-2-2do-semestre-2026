@@ -1,6 +1,6 @@
 package Frontend.Jardin;
 
-import Backend.Modelo.Entidades.Plantas.*;
+import Backend.Modelos.Entidades.Plantas.*;
 
 import javax.swing.*;
 import java.awt.*;
@@ -29,6 +29,12 @@ public class PanelJardinTablero extends JPanel {
     private Image imagenCarnivora;
     private Image imagenBipetidora;
     private Image imagenBinchoHierba;
+    private Image imagenNuezAgrietada;
+    private Image imagenNuezMuyDanada;
+    private String[][] estadosVisualesNuez;
+
+    private Image imagenPatatapumInactiva;
+    private boolean[][] estadosVisualesPatatapum;
 
     public PanelJardinTablero(
             String[][] jsonJardin,
@@ -47,6 +53,8 @@ public class PanelJardinTablero extends JPanel {
         this.filas = jsonJardin.length;
         this.columnas = jsonJardin[0].length;
         this.filaClickListener = listener;
+
+        estadosVisualesNuez = new String[filas][columnas];
 
         setLayout(new GridLayout(filas, columnas, 0, 0));
         setOpaque(false);
@@ -67,6 +75,15 @@ public class PanelJardinTablero extends JPanel {
         imagenBinchoHierba = new ImageIcon("src/main/resources/Plantas/pincho.png").getImage();
 
         imagenHielaguisantes = new ImageIcon("src/main/resources/Plantas/hiela.png").getImage();
+
+        imagenNuezAgrietada = new ImageIcon("src/main/resources/Plantas/nuezDañada.png").getImage();
+
+        imagenNuezMuyDanada = new ImageIcon("src/main/resources/Plantas/nuezMuy.png").getImage();
+
+        imagenPatatapumInactiva = new ImageIcon("src/main/resources/Plantas/inactiva.png").getImage();
+
+
+        estadosVisualesPatatapum = new boolean[filas][columnas];
 
         cargarImagenPasto();
         inicializarComponentes(jsonJardin);
@@ -265,7 +282,7 @@ public class PanelJardinTablero extends JPanel {
                 break;
 
             case "PATATAPUM":
-                imagenSeleccionada = imagenPatatapum;
+                imagenSeleccionada = imagenPatatapumInactiva;
                 break;
 
             case "HIELAGUISANTES":
@@ -313,6 +330,68 @@ public class PanelJardinTablero extends JPanel {
         return new ImageIcon(imagenEscalada);
     }
 
+    private ImageIcon obtenerIconoPatatapum(Patatapum patatapum) {
+
+        Image imagen;
+
+        if (patatapum.isActiva()) {
+            imagen = imagenPatatapum;
+        } else {
+            imagen = imagenPatatapumInactiva;
+        }
+
+        if (imagen == null || imagen.getWidth(this) <= 0) {
+            return null;
+        }
+
+        Image imagenEscalada = imagen.getScaledInstance(
+                65,
+                65,
+                Image.SCALE_SMOOTH
+        );
+
+        return new ImageIcon(imagenEscalada);
+    }
+
+
+    private ImageIcon obtenerIconoNuez(Nuez nuez) {
+
+        Image imagen;
+
+        String estado = nuez.obtenerAparienciaVisual();
+
+        switch (estado) {
+
+            case "AGRIETADA":
+                imagen = imagenNuezAgrietada;
+                break;
+
+            case "MUY_DANADA":
+                imagen = imagenNuezMuyDanada;
+                break;
+
+            case "INTACTA":
+                imagen = imagenNuez;
+                break;
+
+            default:
+                return null;
+        }
+
+        if (imagen == null || imagen.getWidth(this) <= 0) {
+            return null;
+        }
+
+        Image imagenEscalada = imagen.getScaledInstance(
+                65,
+                65,
+                Image.SCALE_SMOOTH
+        );
+
+        return new ImageIcon(imagenEscalada);
+    }
+
+
     private String obtenerSiglasPlanta(String tipo) {
 
         switch (tipo) {
@@ -351,16 +430,92 @@ public class PanelJardinTablero extends JPanel {
 
                 Planta planta = plantasActuales[fila][columna];
 
+                JButton boton = matrizBotones[fila][columna];
+
+                // La planta fue destruida.
                 if (planta == null || !planta.estaViva()) {
 
-                    matrizBotones[fila][columna].setIcon(null);
+                    if (matrizPlantas[fila][columna] != null
+                            || boton.getIcon() != null) {
 
-                    matrizBotones[fila][columna].setText("");
+                        boton.setIcon(null);
+                        boton.setText("");
+                    }
 
                     matrizPlantas[fila][columna] = null;
+                    estadosVisualesNuez[fila][columna] = null;
+                    estadosVisualesPatatapum[fila][columna] = false;
+
+                    continue;
+                }
+
+                boolean esPlantaNueva = matrizPlantas[fila][columna] != planta;
+                matrizPlantas[fila][columna] = planta;
+
+                if (planta instanceof Nuez) {
+
+                    Nuez nuez = (Nuez) planta;
+
+                    String estadoActual = nuez.obtenerAparienciaVisual();
+                    String estadoAnterior = estadosVisualesNuez[fila][columna];
+
+                    if (!estadoActual.equals(estadoAnterior)) {
+
+                        ImageIcon icono = obtenerIconoNuez(nuez);
+
+                        if (icono != null) {
+                            boton.setIcon(icono);
+                            boton.setText("");
+                        }
+
+                        estadosVisualesNuez[fila][columna] = estadoActual;
+                    }
+
+                } else if (planta instanceof Patatapum) {
+
+                    Patatapum patatapum = (Patatapum) planta;
+
+                    boolean estadoActual = patatapum.isActiva();
+
+                    // También actualizar la primera vez que se dibuja.
+                    if (esPlantaNueva
+                            || estadosVisualesPatatapum[fila][columna] != estadoActual) {
+
+                        ImageIcon icono = obtenerIconoPatatapum(patatapum);
+
+                        if (icono != null) {
+                            boton.setIcon(icono);
+                            boton.setText("");
+                        }
+
+                        estadosVisualesPatatapum[fila][columna] = estadoActual;
+                    }
+
+                    estadosVisualesNuez[fila][columna] = null;
+
+                } else {
+                    // Las plantas añadidas por la IA deben dibujarse al aparecer.
+                    if (esPlantaNueva) {
+                        String tipo = obtenerTipoPlanta(planta);
+                        ImageIcon icono = cargarImagenPlanta(tipo);
+                        boton.setIcon(icono);
+                        boton.setText(icono == null ? obtenerSiglasPlanta(tipo) : "");
+                    }
+                    estadosVisualesNuez[fila][columna] = null;
                 }
             }
         }
+    }
+
+    private String obtenerTipoPlanta(Planta planta) {
+        if (planta instanceof Lanzaguisantes) return "LANZAGUISANTES";
+        if (planta instanceof Hielaguisantes) return "HIELAGUISANTES";
+        if (planta instanceof PlantaCarronivora) return "CARRONIVORA";
+        if (planta instanceof PinchoHierba) return "PINCHOHIERBA";
+        if (planta instanceof Bipetidora) return "BIPETIDORA";
+        if (planta instanceof Patatapum) return "PATATAPUM";
+        if (planta instanceof Nuez) return "NUEZ";
+        return "";
     }
 
     public JButton[][] getMatrizBotones() {

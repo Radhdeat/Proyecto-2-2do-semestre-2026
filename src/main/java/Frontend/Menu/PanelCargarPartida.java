@@ -1,26 +1,26 @@
+
 package Frontend.Menu;
 
-import Backend.Cuentas.LectorNivelJson;
-import Backend.Cuentas.ManejadorCuentas;
 import Frontend.Jardin.PanelPartida;
-
 import javax.swing.*;
 import java.awt.*;
+import java.io.File;
 
 public class PanelCargarPartida extends JPanel {
 
-    private VentanaPrincipal ventana;
-    private ManejadorCuentas manejador;
+    private final VentanaPrincipal ventana;
     private JComboBox<String> comboPartidas;
     private Image fondo;
 
+    private File[] archivosEncontrados = new File[0];
+    private String[] cuentasEncontradas = new String[0];
+
     public PanelCargarPartida(VentanaPrincipal ventana) {
         this.ventana = ventana;
-        this.manejador = new ManejadorCuentas();
 
         setLayout(null);
+        setSize(1000, 600);
 
-        // Asegúrate de cambiar la ruta por el nombre exacto de tu nueva imagen de fondo
         fondo = new ImageIcon(
                 "src/main/resources/Fondos/cargar.png"
         ).getImage();
@@ -30,82 +30,216 @@ public class PanelCargarPartida extends JPanel {
     }
 
     private void construirInterfaz() {
-        // Nota: Los JLabel de título y etiqueta se eliminaron porque
-        // el texto ya forma parte de la nueva imagen de fondo.
 
-        // Configuración del JComboBox (barra de partidas)
         comboPartidas = new JComboBox<>();
         comboPartidas.setBounds(250, 265, 530, 52);
         comboPartidas.setOpaque(false);
         comboPartidas.setForeground(Color.DARK_GRAY);
-        comboPartidas.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        comboPartidas.setFont(
+                new Font("Segoe UI", Font.BOLD, 14)
+        );
 
-// Personalizamos el menú desplegable para cuando despliegues las opciones
         comboPartidas.setRenderer(new DefaultListCellRenderer() {
+
             @Override
-            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-                // Cambiamos Component por JComponent y hacemos el cast (JComponent)
-                JComponent c = (JComponent) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            public Component getListCellRendererComponent(
+                    JList<?> list,
+                    Object value,
+                    int index,
+                    boolean isSelected,
+                    boolean cellHasFocus) {
+
+                JComponent c = (JComponent)
+                        super.getListCellRendererComponent(
+                                list, value, index,
+                                isSelected, cellHasFocus
+                        );
+
                 c.setOpaque(true);
+
                 if (isSelected) {
-                    c.setBackground(new Color(241, 196, 15)); // Color amarillo al seleccionar una opción
+                    c.setBackground(new Color(241, 196, 15));
                     c.setForeground(Color.BLACK);
                 } else {
-                    c.setBackground(new Color(45, 45, 45)); // Fondo oscuro para la lista desplegable
+                    c.setBackground(new Color(45, 45, 45));
                     c.setForeground(Color.WHITE);
                 }
+
                 return c;
             }
         });
+
         add(comboPartidas);
 
-        // Botón Cargar partida (Invisible pero interactivo)
+        // Botón Cargar partida
         JButton btnCargar = new JButton(" ");
         btnCargar.setBounds(250, 360, 240, 45);
         btnCargar.setOpaque(false);
         btnCargar.setContentAreaFilled(false);
         btnCargar.setBorderPainted(false);
         btnCargar.setFocusPainted(false);
-        btnCargar.addActionListener(e -> cargarSeleccionada());
+        btnCargar.setCursor(
+                new Cursor(Cursor.HAND_CURSOR)
+        );
+
+        btnCargar.addActionListener(
+                e -> cargarSeleccionada()
+        );
+
         add(btnCargar);
 
-        // Botón Regresar (Invisible pero interactivo)
+        // Botón Regresar
         JButton btnRegresar = new JButton(" ");
         btnRegresar.setBounds(525, 360, 240, 45);
         btnRegresar.setOpaque(false);
         btnRegresar.setContentAreaFilled(false);
         btnRegresar.setBorderPainted(false);
         btnRegresar.setFocusPainted(false);
-        btnRegresar.addActionListener(e ->
-                ventana.cambiarPantalla(new MenuInicio(ventana))
+        btnRegresar.setCursor(
+                new Cursor(Cursor.HAND_CURSOR)
         );
+
+        btnRegresar.addActionListener(e ->
+                ventana.cambiarPantalla(
+                        new MenuInicio(ventana)
+                )
+        );
+
         add(btnRegresar);
     }
 
+    // Busca las partidas de todas las cuentas.
     private void actualizarPartidas() {
+
         comboPartidas.removeAllItems();
 
-        String[] partidas = manejador.obtenerTodasLasPartidas();
+        archivosEncontrados = new File[0];
+        cuentasEncontradas = new String[0];
 
-        if (partidas == null || partidas.length == 0) {
-            comboPartidas.addItem("No hay partidas guardadas en las carpetas");
-            comboPartidas.setEnabled(false);
+        File raiz = new File("cuentas");
+
+        if (!raiz.exists() || !raiz.isDirectory()) {
+            mostrarSinPartidas();
             return;
         }
 
+        // Busca en todas las cuentas aunque no exista
+        // una sesión activa al abrir el programa.
+        File[] carpetas = raiz.listFiles(
+                File::isDirectory
+        );
+
+        if (carpetas == null) {
+            mostrarSinPartidas();
+            return;
+        }
+
+        for (int i = 0; i < carpetas.length; i++) {
+
+            File carpetaPartidas = new File(
+                    carpetas[i], "partidas"
+            );
+
+            File[] archivos = carpetaPartidas.listFiles(
+                    archivo -> archivo.isFile()
+                            && archivo.getName()
+                            .toLowerCase()
+                            .endsWith(".dat")
+            );
+
+            if (archivos == null) {
+                continue;
+            }
+
+            for (int j = 0; j < archivos.length; j++) {
+                agregarArchivo(
+                        archivos[j],
+                        carpetas[i].getName()
+                );
+            }
+        }
+
+        if (archivosEncontrados.length == 0) {
+            mostrarSinPartidas();
+            return;
+        }
+
+        ordenarPartidas();
+
+        // Mostrar solamente el nombre del archivo.
+        // La cuenta sigue guardada internamente.
+        for (int i = 0; i < archivosEncontrados.length; i++) {
+
+            String nombre = archivosEncontrados[i].getName();
+
+            comboPartidas.addItem(nombre);
+        }
+
         comboPartidas.setEnabled(true);
-        for (int i = 0; i < partidas.length; i++) {
-            if (partidas[i] != null) {
-                comboPartidas.addItem(partidas[i]);
+        comboPartidas.setSelectedIndex(0);
+    }
+
+    private void mostrarSinPartidas() {
+
+        comboPartidas.removeAllItems();
+        comboPartidas.addItem("No hay partidas guardadas");
+        comboPartidas.setEnabled(false);
+    }
+
+    // Agrega un archivo conservando su propietario.
+    private void agregarArchivo(File archivo, String cuenta) {
+
+        int cantidad = archivosEncontrados.length;
+
+        File[] nuevosArchivos = new File[cantidad + 1];
+        String[] nuevasCuentas = new String[cantidad + 1];
+
+        for (int i = 0; i < cantidad; i++) {
+
+            nuevosArchivos[i] = archivosEncontrados[i];
+            nuevasCuentas[i] = cuentasEncontradas[i];
+        }
+
+        nuevosArchivos[cantidad] = archivo;
+        nuevasCuentas[cantidad] = cuenta;
+
+        archivosEncontrados = nuevosArchivos;
+        cuentasEncontradas = nuevasCuentas;
+    }
+
+    // Ordena los guardados del más reciente al más antiguo.
+    private void ordenarPartidas() {
+
+        for (int i = 0; i < archivosEncontrados.length - 1; i++) {
+
+            for (int j = i + 1;
+                 j < archivosEncontrados.length; j++) {
+
+                if (archivosEncontrados[j].lastModified()
+                        > archivosEncontrados[i].lastModified()) {
+
+                    File archivoTemporal = archivosEncontrados[i];
+
+                    archivosEncontrados[i] = archivosEncontrados[j];
+                    archivosEncontrados[j] = archivoTemporal;
+
+                    String cuentaTemporal = cuentasEncontradas[i];
+
+                    cuentasEncontradas[i] = cuentasEncontradas[j];
+                    cuentasEncontradas[j] = cuentaTemporal;
+                }
             }
         }
     }
 
     private void cargarSeleccionada() {
-        Object seleccion = comboPartidas.getSelectedItem();
 
-        if (seleccion == null
-                || seleccion.toString().contains("No hay partidas")) {
+        int indice = comboPartidas.getSelectedIndex();
+
+        if (!comboPartidas.isEnabled()
+                || indice < 0
+                || indice >= archivosEncontrados.length) {
+
             JOptionPane.showMessageDialog(
                     this,
                     "No hay ninguna partida válida para cargar."
@@ -113,72 +247,64 @@ public class PanelCargarPartida extends JPanel {
             return;
         }
 
-        String seleccionStr = seleccion.toString();
-        String[] partes = seleccionStr.split("/");
+        File archivo = archivosEncontrados[indice];
+        String cuenta = cuentasEncontradas[indice];
 
-        if (partes.length < 2) {
+        if (!archivo.exists() || !archivo.isFile()) {
+
             JOptionPane.showMessageDialog(
                     this,
-                    "Formato de ruta de partida incorrecto."
+                    "El archivo seleccionado ya no existe."
+            );
+
+            actualizarPartidas();
+            return;
+        }
+
+        if (cuenta == null || cuenta.trim().isEmpty()) {
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "No se encontró la cuenta de esta partida."
             );
             return;
         }
 
-        String cuenta = partes[0].trim();
-        String archivo = partes[1].trim();
-
-        ventana.setCuentaActual(cuenta);
-
-        String contenido = manejador.cargarPartida(cuenta, archivo);
-
-        if (contenido == null) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "No se pudo leer el archivo de la partida guardada."
-            );
-            return;
-        }
-
-        String rutaNivel = "src/main/resources/nivel1.json";
-        String dificultadPartida = "Medio";
-
-        String[] lineas = contenido.split("\n");
-        for (int i = 0; i < lineas.length; i++) {
-            String linea = lineas[i];
-            if (linea.startsWith("nivelPath=")) {
-                rutaNivel = linea.replace("nivelPath=", "").trim();
-            }
-            if (linea.startsWith("dificultad=")) {
-                dificultadPartida = linea.replace("dificultad=", "").trim();
-            }
-        }
-
-        LectorNivelJson lector = new LectorNivelJson();
-
-        if (lector.cargarConfiguracion(rutaNivel)) {
-            String[][] jardinDatos = lector.getJardin();
-            int duracion = lector.getDuracionSegundos();
-            int cerebros = lector.getCerebrosIniciales();
-
-            PanelPartida partidaTablero = new PanelPartida(ventana, jardinDatos, duracion, cerebros, dificultadPartida);
-            ventana.cambiarPantalla(partidaTablero);
-
-        } else {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "No se pudo cargar el archivo JSON del nivel asociado.",
-                    "Error de Carga",
-                    JOptionPane.ERROR_MESSAGE
-            );
-        }
+        // Utilizamos la ruta real, no el texto mostrado
+        // en el JComboBox.
+        //
+        // Este método vincula la cuenta y reconstruye
+        // la partida binaria guardada.
+        PanelPartida.cargarArchivoDesdeMenu(
+                ventana,
+                cuenta,
+                archivo
+        );
     }
 
     @Override
     protected void paintComponent(Graphics g) {
+
         super.paintComponent(g);
 
-        if (fondo != null) {
-            g.drawImage(fondo, 0, 0, getWidth(), getHeight(), this);
+        if (fondo != null && fondo.getWidth(this) > 0) {
+
+            g.drawImage(
+                    fondo,
+                    0, 0,
+                    getWidth(),
+                    getHeight(),
+                    this
+            );
+
+        } else {
+
+            g.setColor(new Color(45, 52, 54));
+            g.fillRect(
+                    0, 0,
+                    getWidth(),
+                    getHeight()
+            );
         }
     }
 }

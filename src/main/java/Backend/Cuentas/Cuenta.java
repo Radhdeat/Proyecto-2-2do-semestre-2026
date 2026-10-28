@@ -13,11 +13,13 @@ public class Cuenta {
     private int plantasDestruidas;
     private int zombisInvocados;
     private int cerebrosGastados;
-    private int mejorTiempoVictoria; // Almacenado en segundos
+    // Almacena en segundos
+    private int mejorTiempoVictoria;
     private int podadorasActivadas;
 
     // Constructor para una cuenta nueva
     public Cuenta(String nombrePartida) {
+
         // instanciamos todo como 0 ya que es una nueva partida
         this.nombrePartida = nombrePartida;
         this.partidasJugadas = 0;
@@ -32,7 +34,10 @@ public class Cuenta {
 
     // Métodos para calcular las estadisticas de victoria
     public double getPorcentajeVictorias() {
-        if (partidasJugadas == 0) return 0.0;
+        // si las partidas son 0 entonces da un valor 0
+        if (partidasJugadas == 0)
+            return 0.0;
+        // Pero si hay mas de una entonces aplicamos el calculo
         return ((double) partidasGanadas / partidasJugadas) * 100.0;
     }
 

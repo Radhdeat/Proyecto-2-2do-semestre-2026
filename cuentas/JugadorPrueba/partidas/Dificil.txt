@@ -1,5 +1,0 @@
-dificultad=Difícil
-nivelPath=C:\Users\calde\OneDrive\Escritorio\Proyecto2\src\main\resources\Niveles\Nivel3.json
-zombisInvocados=0
-cerebrosGastados=0
-plantasDestruidas=0

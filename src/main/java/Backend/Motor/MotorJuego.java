@@ -1,24 +1,30 @@
 package Backend.Motor;
 
-import Backend.Modelo.Tablero;
-import Backend.Modelo.Entidades.Plantas.Planta;
-import Backend.Modelo.Entidades.Plantas.Lanzaguisantes;
-import Backend.Modelo.Entidades.Plantas.Hielaguisantes;
-import Backend.Modelo.Entidades.Plantas.Bipetidora;
-import Backend.Modelo.Entidades.Plantas.PinchoHierba;
-import Backend.Modelo.Entidades.Guisantes.Guisantes;
-import Backend.Modelo.Entidades.Zombis.Zombi;
+import Backend.Modelos.Tablero;
+import Backend.Modelos.Entidades.Plantas.Planta;
+import Backend.Modelos.Entidades.Plantas.Lanzaguisantes;
+import Backend.Modelos.Entidades.Plantas.Hielaguisantes;
+import Backend.Modelos.Entidades.Plantas.Bipetidora;
+import Backend.Modelos.Entidades.Plantas.PinchoHierba;
+import Backend.Modelos.Entidades.Guisantes.Guisantes;
+import Backend.Modelos.Entidades.Zombis.Zombi;
 import javax.swing.SwingUtilities;
 import java.lang.reflect.InvocationTargetException;
 
-import Backend.Modelo.Entidades.Plantas.Patatapum;
-import Backend.Modelo.Entidades.Plantas.PlantaCarronivora;
-import Backend.Modelo.Entidades.Zombis.Zombistein;
+import Backend.Modelos.Entidades.Plantas.Patatapum;
+import Backend.Modelos.Entidades.Plantas.PlantaCarronivora;
+import Backend.Modelos.Entidades.Zombis.Zombistein;
+import Backend.Modelos.Entidades.Zombis.ZombiSaltador;
+import Backend.Modelos.Entidades.Zombis.ZombiDeportista;
+import Backend.Modelos.Entidades.Zombis.ZombiBailon;
+import Backend.Modelos.Entidades.Zombis.Zombidito;
+import Backend.Modelos.Entidades.Zombis.ZombiBailarin;
+import Backend.Modelos.Entidades.Plantas.Nuez;
 
 public class MotorJuego implements Runnable {
 
     private static final double ANCHO_JARDIN = 755.0;
-    private static final double ANCHO_ZOMBI = 50.0;
+    private static final double ANCHO_ZOMBI = 65.0;
     private static final double ANCHO_GUISANTE = 25.0;
     private static final double ANCHO_PODADORA = 55.0;
     private static final double VELOCIDAD_PODADORA = 8.0;
@@ -27,12 +33,19 @@ public class MotorJuego implements Runnable {
     private static final int CICLOS_POR_ATAQUE = 30;
     private static final int CICLOS_DISPARO_NORMAL = 30;
     private static final int CICLOS_DISPARO_HIELO = 45;
-    private static final long DURACION_CONGELACION_MS = 3000L;
+    private static final long DURACION_CONGELACION_MS = 4000L;
     private static final double FACTOR_VELOCIDAD_CONGELADO = 0.60;
 
+    private IA inteligenciaPlantas;
     private final Tablero tablero;
     private final Runnable actualizadorPantalla;
     private Runnable eventoVictoria;
+
+    public interface EventoPlantaDestruida {
+        void alDestruir(int fila, int columna);
+    }
+
+    private EventoPlantaDestruida eventoPlantaDestruida;
     private boolean juegoActivo;
     private Thread hiloMotor;
     private int contadorCiclos;
@@ -41,6 +54,12 @@ public class MotorJuego implements Runnable {
     // Arreglos, sin ArrayList ni HashMap, para efectos de congelación.
     private Zombi[] zombisCongelados;
     private long[] congeladosHasta;
+    // Tiempo del último ataque de cada pinchohierba (una vez cada 500 ms).
+    private final long[][] ultimoAtaquePincho;
+    private ZombiBailon[] bailonesEnBaile = new ZombiBailon[12];
+    private long[] baileHasta = new long[12];
+
+    private boolean juegoPausado = false;
 
     public MotorJuego(Tablero tablero, Runnable actualizadorPantalla) {
         this.tablero = tablero;
@@ -50,10 +69,31 @@ public class MotorJuego implements Runnable {
         this.plantasDestruidas = 0;
         this.zombisCongelados = new Zombi[20];
         this.congeladosHasta = new long[20];
+        this.ultimoAtaquePincho = new long[tablero.getFilas()][tablero.getColumnas()];
+    }
+
+    public void setEventoPlantaDestruida(EventoPlantaDestruida evento) {
+        this.eventoPlantaDestruida = evento;
     }
 
     public void setEventoVictoria(Runnable eventoVictoria) {
         this.eventoVictoria = eventoVictoria;
+    }
+
+    public void pausarJuego() {
+        juegoPausado = true;
+    }
+
+    public void reanudarJuego() {
+        juegoPausado = false;
+    }
+
+    public boolean isJuegoPausado() {
+        return juegoPausado;
+    }
+
+    public void configurarInteligencia(String dificultad) {
+        inteligenciaPlantas = new IA(tablero, dificultad);
     }
 
     public void iniciarJuego() {
@@ -78,8 +118,11 @@ public class MotorJuego implements Runnable {
         while (!Thread.currentThread().isInterrupted()) {
             try {
                 SwingUtilities.invokeAndWait(() -> {
-                    if (juegoActivo) {
+
+                    if (juegoActivo && !juegoPausado) {
+
                         actualizarLogica();
+
                         if (actualizadorPantalla != null) {
                             actualizadorPantalla.run();
                         }
@@ -97,28 +140,32 @@ public class MotorJuego implements Runnable {
                 detenerJuego();
                 break;
             }
+
+
         }
     }
 
     private void actualizarLogica() {
         contadorCiclos++;
+        if (inteligenciaPlantas != null) inteligenciaPlantas.actualizar();
         gestionarPodadoras();
-        moverYAtacarConZombis();
+        // La mina debe activarse antes de resolver los contactos.
         gestionarPatatapum();
         gestionarCarnivoras();
+        moverYAtacarConZombis();
+        if (!juegoActivo) return;
+        gestionarPatatapum();
+        gestionarCarnivoras();
+        gestionarPinchoHierba();
+        gestionarZombistein();
+        gestionarBailones();
 
-        if (!juegoActivo) {
-            return;
-        }
-
-        // Las plantas disparan de acuerdo con su cadencia.
         if (contadorCiclos % CICLOS_DISPARO_NORMAL == 0) {
             dispararPlantasNormales();
         }
         if (contadorCiclos % CICLOS_DISPARO_HIELO == 0) {
             dispararHielaguisantes();
         }
-
         moverGuisantesYDetectarImpactos();
         tablero.limpiarZombisMuertos();
         tablero.limpiarGuisantesInactivos();
@@ -137,10 +184,13 @@ public class MotorJuego implements Runnable {
 
             Planta obstaculo = encontrarPlantaEnContacto(zombi);
             if (obstaculo != null) {
+                // Si una carnívora está lista, tendrá prioridad en gestionarCarnivoras().
+                if (intentarSaltar(zombi, obstaculo)) continue;
                 atacarPlanta(zombi, obstaculo);
                 continue;
             }
 
+            if (estaBailando(zombi)) continue;
             double posicionAnterior = zombi.getPosicionX();
             zombi.avanzar();
             if (estaCongelado(zombi)) {
@@ -153,6 +203,7 @@ public class MotorJuego implements Runnable {
             if (nuevaColision != null) {
                 // El zombi se detiene justo antes de la planta bloqueante.
                 double anchoCasilla = ANCHO_JARDIN / tablero.getColumnas();
+                if (intentarSaltar(zombi, nuevaColision)) continue;
                 double limite = nuevaColision.getColumna() * anchoCasilla - ANCHO_ZOMBI;
                 zombi.setPosicionX(Math.min(zombi.getPosicionX(), limite));
                 atacarPlanta(zombi, nuevaColision);
@@ -168,16 +219,39 @@ public class MotorJuego implements Runnable {
         }
     }
 
-    private void atacarPlanta(Zombi zombi, Planta planta) {
-        if (contadorCiclos % CICLOS_POR_ATAQUE != 0) {
-            return;
-        }
-        planta.recibirDaño(zombi.getDaño());
-        if (!planta.estaViva()) {
-            tablero.removerPlanta(planta.getFila(), planta.getColumna());
-            plantasDestruidas++;
+    private boolean intentarSaltar(Zombi zombi, Planta planta) {
+        if (!(zombi instanceof ZombiSaltador) || planta instanceof Nuez) return false;
+        ZombiSaltador saltador = (ZombiSaltador) zombi;
+        if (!saltador.tieneGarrocha()) return false;
+        double anchoCasilla = ANCHO_JARDIN / tablero.getColumnas();
+        double destino = (planta.getColumna() + 1) * anchoCasilla;
+        saltador.setPosicionX(Math.min(destino, ANCHO_JARDIN - ANCHO_ZOMBI));
+        saltador.perderGarrocha();
+        return true;
+    }
+
+    private void registrarPlantaDestruida(int fila, int columna) {
+        tablero.removerPlanta(fila, columna);
+        plantasDestruidas++;
+        if (eventoPlantaDestruida != null) {
+            eventoPlantaDestruida.alDestruir(fila, columna);
         }
     }
+
+    private void atacarPlanta(Zombi zombi, Planta planta) {
+        // Zombistein pisa plantas en lugar de morderlas.
+        if (zombi instanceof Zombistein) {
+            registrarPlantaDestruida(planta.getFila(), planta.getColumna());
+            return;
+        }
+        int intervalo = zombi instanceof ZombiDeportista ? 15 : CICLOS_POR_ATAQUE;
+        if (contadorCiclos % intervalo != 0) return;
+        planta.recibirDaño(zombi.getDaño());
+        if (!planta.estaViva()) {
+            registrarPlantaDestruida(planta.getFila(), planta.getColumna());
+        }
+    }
+
     private void gestionarPatatapum() {
 
         double anchoCasilla =
@@ -311,8 +385,9 @@ public class MotorJuego implements Runnable {
                     continue;
                 }
 
-                double inicioCasilla = columna * anchoCasilla;
-                double finalCasilla = inicioCasilla + anchoCasilla;
+                // Alcanza su propia casilla y la frontal (hacia la izquierda).
+                double inicioCasilla = Math.max(0, (columna - 1) * anchoCasilla);
+                double finalCasilla = (columna + 1) * anchoCasilla;
 
                 for (int i = 0;
                      i < tablero.getListaZombis().getTamaño();
@@ -379,6 +454,72 @@ public class MotorJuego implements Runnable {
         }
     }
 
+    private void gestionarPinchoHierba() {
+        if (tablero.getColumnas() <= 0) {
+            return;
+        }
+        long ahora = System.currentTimeMillis();
+        double anchoCasilla = ANCHO_JARDIN / tablero.getColumnas();
+
+        for (int fila = 0; fila < tablero.getFilas(); fila++) {
+            for (int columna = 0; columna < tablero.getColumnas(); columna++) {
+                Planta planta = tablero.getPlanta(fila, columna);
+                if (!(planta instanceof PinchoHierba) || !planta.estaViva()) {
+                    ultimoAtaquePincho[fila][columna] = 0;
+                    continue;
+                }
+
+                double izquierda = columna * anchoCasilla;
+                double derecha = izquierda + anchoCasilla;
+                boolean hayZombis = false;
+                boolean aplastada = false;
+
+                for (int i = 0; i < tablero.getListaZombis().getTamaño(); i++) {
+                    Zombi zombi = tablero.getListaZombis().obtener(i);
+                    if (zombi == null || !zombi.estaVivo() || zombi.getFila() != fila) {
+                        continue;
+                    }
+                    double inicioZombi = zombi.getPosicionX();
+                    double finZombi = inicioZombi + ANCHO_ZOMBI;
+                    if (inicioZombi >= derecha || finZombi <= izquierda) {
+                        continue;
+                    }
+                    // La destrucción ocurre al pasar por encima, no por mordidas.
+                    if (zombi instanceof Zombistein) {
+                        aplastada = true;
+                        break;
+                    }
+                    hayZombis = true;
+                }
+
+                if (aplastada) {
+                    registrarPlantaDestruida(fila, columna);
+                    ultimoAtaquePincho[fila][columna] = 0;
+                    continue;
+                }
+                if (!hayZombis) {
+                    ultimoAtaquePincho[fila][columna] = 0;
+                    continue;
+                }
+                if (ultimoAtaquePincho[fila][columna] != 0
+                        && ahora - ultimoAtaquePincho[fila][columna] < 500L) {
+                    continue;
+                }
+                ultimoAtaquePincho[fila][columna] = ahora;
+                for (int i = 0; i < tablero.getListaZombis().getTamaño(); i++) {
+                    Zombi zombi = tablero.getListaZombis().obtener(i);
+                    if (zombi == null || !zombi.estaVivo() || zombi.getFila() != fila) {
+                        continue;
+                    }
+                    double x = zombi.getPosicionX();
+                    if (x < derecha && x + ANCHO_ZOMBI > izquierda) {
+                        zombi.recibirDaño(10);
+                    }
+                }
+            }
+        }
+    }
+
     private Planta encontrarPlantaEnContacto(Zombi zombi) {
 
         int fila = zombi.getFila();
@@ -392,16 +533,113 @@ public class MotorJuego implements Runnable {
 
         for (int columna = 0; columna < tablero.getColumnas(); columna++) {
             Planta planta = tablero.getPlanta(fila, columna);
-            if (planta == null || !planta.estaViva() || planta instanceof PinchoHierba) {
+            if (planta == null
+                    || !planta.estaViva()
+                    || planta instanceof PinchoHierba) {
+
+                continue;
+            }
+            // Inactiva: se puede atacar. Activa: contacto resuelto por explosión.
+            if (planta instanceof Patatapum && ((Patatapum) planta).isActiva()) {
                 continue;
             }
             double izquierdaPlanta = columna * anchoCasilla;
             double derechaPlanta = izquierdaPlanta + anchoCasilla;
-            if (derechaZombi > izquierdaPlanta && izquierdaZombi < derechaPlanta) {
+            if (derechaZombi >= izquierdaPlanta && izquierdaZombi <= derechaPlanta) {
                 return planta;
             }
         }
         return null;
+    }
+
+    private void gestionarZombistein() {
+        // Iteramos solamente zombis preexistentes; no repetimos el lanzamiento.
+        int cantidadInicial = tablero.getListaZombis().getTamaño();
+        for (int i = 0; i < cantidadInicial; i++) {
+            Zombi zombi = tablero.getListaZombis().obtener(i);
+            if (!(zombi instanceof Zombistein) || !zombi.estaVivo()) continue;
+            Zombistein gigante = (Zombistein) zombi;
+            if (!gigante.puedeLanzarZombidito()) continue;
+            // No lanzar si ya se encuentra en las últimas dos casillas.
+            double limite = (tablero.getColumnas() - 2)
+                    * ANCHO_JARDIN / tablero.getColumnas();
+            if (gigante.getPosicionX() >= limite) continue;
+            double destino = Math.min(gigante.getPosicionX() + ANCHO_ZOMBI,
+                    ANCHO_JARDIN - ANCHO_ZOMBI);
+            gigante.registrarLanzamiento();
+            tablero.agregarZombi(new Zombidito(gigante.getFila(), destino));
+        }
+    }
+
+    private void gestionarBailones() {
+        int cantidadInicial = tablero.getListaZombis().getTamaño();
+        for (int i = 0; i < cantidadInicial; i++) {
+            Zombi zombi = tablero.getListaZombis().obtener(i);
+            if (!(zombi instanceof ZombiBailon) || !zombi.estaVivo()) continue;
+            ZombiBailon bailon = (ZombiBailon) zombi;
+            if (!bailon.puedeBailar()) continue;
+            bailon.registrarBaile();
+            registrarBaileActivo(bailon);
+            int fila = bailon.getFila();
+            double x = bailon.getPosicionX();
+            double anchoCelda = ANCHO_JARDIN / tablero.getColumnas();
+            // Vecinos: arriba, abajo, delante y detrás. No solapar zombis.
+            colocarBailarin(fila - 1, x);
+            colocarBailarin(fila + 1, x);
+            colocarBailarin(fila, x - anchoCelda);
+            colocarBailarin(fila, x + anchoCelda);
+        }
+    }
+
+    private void registrarBaileActivo(ZombiBailon bailon) {
+        long hasta = System.currentTimeMillis() + 1000L;
+        int libre = -1;
+        for (int i = 0; i < bailonesEnBaile.length; i++) {
+            if (bailonesEnBaile[i] == bailon) {
+                baileHasta[i] = hasta;
+                return;
+            }
+            if (libre == -1 && (bailonesEnBaile[i] == null
+                    || baileHasta[i] <= System.currentTimeMillis())) libre = i;
+        }
+        if (libre == -1) {
+            int anterior = bailonesEnBaile.length;
+            ZombiBailon[] nuevos = new ZombiBailon[anterior * 2];
+            long[] nuevosHasta = new long[anterior * 2];
+            System.arraycopy(bailonesEnBaile, 0, nuevos, 0, anterior);
+            System.arraycopy(baileHasta, 0, nuevosHasta, 0, anterior);
+            bailonesEnBaile = nuevos;
+            baileHasta = nuevosHasta;
+            libre = anterior;
+        }
+        bailonesEnBaile[libre] = bailon;
+        baileHasta[libre] = hasta;
+    }
+
+    private boolean estaBailando(Zombi zombi) {
+        if (!(zombi instanceof ZombiBailon)) return false;
+        for (int i = 0; i < bailonesEnBaile.length; i++) {
+            if (bailonesEnBaile[i] == zombi) {
+                if (System.currentTimeMillis() < baileHasta[i]) return true;
+                bailonesEnBaile[i] = null;
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private void colocarBailarin(int fila, double posicionX) {
+        if (fila < 0 || fila >= tablero.getFilas()) return;
+        if (posicionX < 0 || posicionX + ANCHO_ZOMBI > ANCHO_JARDIN) return;
+        for (int i = 0; i < tablero.getListaZombis().getTamaño(); i++) {
+            Zombi existente = tablero.getListaZombis().obtener(i);
+            if (existente != null && existente.estaVivo()
+                    && existente.getFila() == fila
+                    && Math.abs(existente.getPosicionX() - posicionX) < ANCHO_ZOMBI) {
+                return;
+            }
+        }
+        tablero.agregarZombi(new ZombiBailarin(fila, posicionX));
     }
 
     private void dispararPlantasNormales() {
@@ -613,3 +851,4 @@ public class MotorJuego implements Runnable {
         return juegoActivo;
     }
 }
+

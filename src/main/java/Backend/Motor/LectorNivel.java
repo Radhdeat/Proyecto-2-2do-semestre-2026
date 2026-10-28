@@ -1,6 +1,6 @@
 package Backend.Motor;
 
-import Backend.Modelo.Nivel;
+import Backend.Modelos.Nivel;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;

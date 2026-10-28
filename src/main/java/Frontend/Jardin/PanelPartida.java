@@ -1,13 +1,27 @@
 package Frontend.Jardin;
 
-import Backend.Modelo.Entidades.Zombis.*;
-import Backend.Modelo.Tablero;
+import Backend.Modelos.Entidades.Zombis.*;
+import Backend.Modelos.Tablero;
 import Backend.Motor.MotorJuego;
 import Frontend.Menu.MenuInicio;
 import Frontend.Menu.VentanaPrincipal;
+import Backend.Motor.GestorHordas;
+import Backend.Guardado.Cargar;
+import Backend.Guardado.Guardar;
+import Backend.Estadisticas.ManejadorEstadisticas;
+import java.io.IOException;
+import java.io.File;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import javax.swing.JFileChooser;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.AbstractAction;
+import javax.swing.JComponent;
+import javax.swing.KeyStroke;
+import java.awt.event.ActionEvent;
 
-import Backend.Modelo.Entidades.Plantas.*;
-import Backend.Modelo.Entidades.Guisantes.Guisantes;
+import Backend.Modelos.Entidades.Plantas.*;
+import Backend.Modelos.Entidades.Guisantes.Guisantes;
 
 import java.awt.Color;
 import java.awt.Font;
@@ -25,7 +39,14 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 public class PanelPartida extends JPanel {
+    private String jugadorActual;
+    private static final DateTimeFormatter FORMATO_FECHA =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss_SSS");
     private int zombisInvocados = 0;
+    private int cerebrosGastadosEnPartida = 0;
+    private int podadorasUsadasAlCargar = 0;
+    // Estadísticas anteriores a una carga.
+    private int plantasDestruidasPrevias = 0;
     private int duracionInicial;
     private boolean resultadoMostrado = false;
     private VentanaPrincipal ventana;
@@ -39,7 +60,9 @@ public class PanelPartida extends JPanel {
 
     private Thread hiloCronometro;
     private Thread hiloGeneradorCerebros;
+    private static final int TAMANO_CEREBRO = 40;
 
+    private boolean partidaPausada = false;
     private boolean juegoActivo;
     private boolean cerebroRecogidoEnClic;
 
@@ -55,6 +78,12 @@ public class PanelPartida extends JPanel {
     private Tablero tablero;
     private MotorJuego motor;
     private Image imagenZombiNormal;
+    private Image imagenZombiSinBrazo;
+    private Image imagenZombiSinCono;
+    private Image imagenZombiSinCasco;
+    private Image imagenZombiSinGarrocha;
+    private Image imagenZombidito;
+    private Image imagenZombiBailarin;
     private Image imagenZombiCaraCono;
     private Image imagenZombiSaltador;
     private Image imagenZombiDeportista;
@@ -66,6 +95,12 @@ public class PanelPartida extends JPanel {
     private Image imagenGuisante;
     private Image imagenGuisanteCongelado;
 
+    private GestorHordas gestorHordas;
+    private JLabel lblHorda;
+    private int ultimoBloqueMostrado = 1;
+
+    private static final int ANCHO_ZOMBI = 65;
+    private static final int ALTO_ZOMBI = 85;
     private static final int ANCHO_PODADORA = 55;
     private static final int ALTO_PODADORA = 55;
 
@@ -73,16 +108,24 @@ public class PanelPartida extends JPanel {
     private static final int ALTO_GUISANTE = 25;
 
 
-    public PanelPartida(
-            VentanaPrincipal ventana,
-            String[][] jardinDatos,
-            int duracionSegundos,
-            int cerebrosIniciales,
-            String dificultad) {
+    // Mantiene compatibilidad con el constructor antiguo; antes de guardar
+    // debes vincular el jugador mediante establecerJugadorActual(...).
+    public PanelPartida(VentanaPrincipal ventana, String[][] jardinDatos,
+                        int duracionSegundos, int cerebrosIniciales, String dificultad) {
+        this(ventana, jardinDatos, duracionSegundos, cerebrosIniciales, dificultad, ventana.getCuentaActual());
+    }
+
+    // Usa este constructor desde el menú cuando la cuenta ya está seleccionada.
+    public PanelPartida(VentanaPrincipal ventana, String[][] jardinDatos,
+                        int duracionSegundos, int cerebrosIniciales, String dificultad,
+                        String jugadorActual) {
+        this.jugadorActual = (jugadorActual == null || jugadorActual.trim().isEmpty())
+                ? ventana.getCuentaActual() : jugadorActual;
 
         this.ventana = ventana;
         this.segundosRestantes = Math.max(0, duracionSegundos);
         this.duracionInicial = this.segundosRestantes;
+        this.gestorHordas = new GestorHordas(duracionInicial);
         this.cerebrosActuales = Math.max(0, cerebrosIniciales);
 
         this.dificultadJuego =
@@ -104,7 +147,7 @@ public class PanelPartida extends JPanel {
 
         imagenCerebro = new ImageIcon("src/main/resources/Zombis/cerebro.png").getImage();
 
-        imagenZombiNormal = new ImageIcon("src/main/resources/Zombis/normal.png").getImage();
+        imagenZombiNormal = new ImageIcon("src/main/resources/Zombis/normal.gif").getImage();
 
         imagenZombiCaraCono = new ImageIcon("src/main/resources/Zombis/cono.png").getImage();
 
@@ -121,6 +164,18 @@ public class PanelPartida extends JPanel {
         imagenGuisante = new ImageIcon("src/main/resources/Recursos/guisante.png").getImage();
 
         imagenGuisanteCongelado = new ImageIcon("src/main/resources/Recursos/guisanteCongelado.png").getImage();
+
+        imagenZombiSinBrazo = new ImageIcon("src/main/resources/Zombis/normalSin.gif").getImage();
+
+        imagenZombiSinCono = cargarImagenOpcional("src/main/resources/Zombis/sincono.gif", imagenZombiNormal);
+
+        imagenZombiSinCasco = cargarImagenOpcional("src/main/resources/Zombis/sincasco.png", imagenZombiDeportista);
+
+        imagenZombiSinGarrocha = cargarImagenOpcional("src/main/resources/Zombis/saltadorSin.png", imagenZombiSaltador);
+
+        imagenZombidito = cargarImagenOpcional("src/main/resources/Zombis/zombidito.png", imagenZombiNormal);
+
+        imagenZombiBailarin = cargarImagenOpcional("src/main/resources/Zombis/bailarin.png", imagenZombiBailon);
 
         // Crear el modelo antes de construir el tablero visual.
         if (jardinDatos == null || jardinDatos.length == 0 || jardinDatos[0] == null || jardinDatos[0].length == 0) {
@@ -144,9 +199,20 @@ public class PanelPartida extends JPanel {
         });
 
         motor.setEventoVictoria(() -> finalizarPartida(true));
+        motor.setEventoPlantaDestruida((fila, columna) ->
+                soltarCerebrosPorPlanta(fila, columna));
+        motor.configurarInteligencia(dificultadJuego);
+        // Las plantas se activan desde el inicio, incluso si aún no invocas zombis.
+        motor.iniciarJuego();
+
+
+
 
         iniciarCronometroNativo();
         iniciarGeneradoresCerebros();
+        configurarAtajoGuardado();
+        configurarAtajoCarga();
+
     }
 
     private void construirHUD() {
@@ -197,7 +263,7 @@ public class PanelPartida extends JPanel {
 
             btnZombi.addActionListener(e -> {
 
-                if (!juegoActivo) {
+                if (!juegoActivo || partidaPausada) {
                     return;
                 }
 
@@ -229,12 +295,14 @@ public class PanelPartida extends JPanel {
 
         btnPausa.addActionListener(e -> {
 
-            if (juegoActivo) {
-                JOptionPane.showMessageDialog(
-                        this,
-                        "La pausa todavía no está implementada."
-                );
+            if (!juegoActivo) {
+                return;
             }
+
+            if (!partidaPausada) {
+                pausarPartida();
+            }
+            mostrarMenuPausa();
         });
 
         add(btnPausa);
@@ -273,6 +341,436 @@ public class PanelPartida extends JPanel {
         btnSalir.addActionListener(e -> salirDelJuego());
 
         add(btnSalir);
+
+        lblHorda = new JLabel(
+                gestorHordas.getDescripcion(),
+                SwingConstants.CENTER
+        );
+
+        lblHorda.setFont(new Font("Arial", Font.BOLD, 14));
+        lblHorda.setForeground(Color.RED);
+
+        lblHorda.setBounds(540, 65, 300, 25);
+
+        add(lblHorda);
+    }
+
+
+    private void pausarPartida() {
+
+        if (!juegoActivo || partidaPausada) {
+            return;
+        }
+
+        partidaPausada = true;
+
+        motor.pausarJuego();
+
+        System.out.println("PARTIDA PAUSADA");
+
+        repaint();
+    }
+
+    private void reanudarPartida() {
+
+        if (!juegoActivo || !partidaPausada) {
+            return;
+        }
+
+        partidaPausada = false;
+
+        motor.reanudarJuego();
+
+        System.out.println("PARTIDA REANUDADA");
+
+        repaint();
+    }
+
+
+
+
+    /** Nombre de la cuenta seleccionada. Se configura desde el menú. */
+    public void establecerJugadorActual(String jugador) {
+        this.jugadorActual = jugador;
+    }
+
+    private static File carpetaDePartidas(String jugador) throws IOException {
+        if (jugador == null || !jugador.matches("[\\p{L}\\p{N} _-]{1,64}")
+                || jugador.trim().isEmpty()) {
+            throw new IOException("No hay una cuenta válida seleccionada. Vincula el nickname al crear PanelPartida.");
+        }
+        File carpeta = new File(new File("cuentas", jugador.trim()), "partidas");
+        if (!carpeta.isDirectory() && !carpeta.mkdirs()) {
+            throw new IOException("No se pudo crear carpeta del jugador: " + carpeta);
+        }
+        return carpeta;
+    }
+
+    private void mostrarMenuPausa() {
+        if (!juegoActivo || !partidaPausada) return;
+        Object[] opciones = {"Reanudar", "Guardar y salir"};
+        int opcion = JOptionPane.showOptionDialog(this,
+                "La partida está pausada. Selecciona una opción:",
+                "Partida pausada", JOptionPane.DEFAULT_OPTION,
+                JOptionPane.QUESTION_MESSAGE, null, opciones, opciones[0]);
+        if (opcion == 1) {
+            guardarYSalir();
+        } else {
+            // Cerrar la ventana también retoma la partida.
+            reanudarPartida();
+        }
+    }
+
+    private void guardarYSalir() {
+        if (!juegoActivo || !partidaPausada) return;
+        File archivo = guardarPartidaEnCuenta();
+        if (archivo == null) return; // No abandonar la partida si falló el guardado.
+        juegoActivo = false;
+        detenerGeneradorCerebros();
+        if (hiloCronometro != null) hiloCronometro.interrupt();
+        if (motor != null) motor.detenerJuego();
+        JOptionPane.showMessageDialog(this,
+                "Guardada: " + archivo.getName() + "\nCuenta: " + jugadorActual,
+                "Guardado correcto", JOptionPane.INFORMATION_MESSAGE);
+        ventana.cambiarPantalla(new MenuInicio(ventana));
+    }
+
+    /** Selecciona y carga una partida del jugador activo. */
+    public static boolean cargarDesdeMenu(VentanaPrincipal ventana, String jugador) {
+        try {
+            File archivo = elegirPartidaGuardada(null, jugador);
+            if (archivo == null) return false;
+            return cargarArchivoDesdeMenu(ventana, jugador, archivo);
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(ventana, "Error cargando partida: " + ex.getMessage(),
+                    "Carga fallida", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+    }
+
+    /** Recibe el archivo concreto seleccionado en PanelCargarPartida.
+     *  No abre otra ventana y no crea una partida nueva desde el JSON.
+     */
+    public static boolean cargarArchivoDesdeMenu(VentanaPrincipal ventana,
+                                                 String jugador, File archivo) {
+        PanelPartida restaurada = null;
+        String cuentaAnterior = ventana.getCuentaActual();
+        try {
+            if (jugador == null || jugador.trim().isEmpty()) {
+                throw new IOException("La partida no tiene una cuenta propietaria válida.");
+            }
+            File carpeta = carpetaDePartidas(jugador).getCanonicalFile();
+            File validado = archivo.getCanonicalFile();
+            if (!validado.isFile()
+                    || !carpeta.equals(validado.getParentFile())
+                    || !validado.getName().toLowerCase().endsWith(".dat")) {
+                throw new IOException("El archivo no pertenece a la cuenta actual.");
+            }
+            Cargar.DatosPartida datos = new Cargar().leer(validado.getPath());
+            // Vincular la sesión al propietario del archivo, incluso tras reiniciar la aplicación.
+            ventana.setCuentaActual(jugador);
+            // El constructor de reconstruirPartida utiliza la ventana y la cuenta.
+            // Este objeto auxiliar no debe iniciar motores ni cronómetros.
+            // Construimos el restaurador mediante un panel inicial vacío,
+            // y detenemos sus procesos antes de mostrar la partida recuperada.
+            if (datos.plantas == null || datos.plantas.length == 0
+                    || datos.plantas[0] == null || datos.plantas[0].length == 0) {
+                throw new IOException("El archivo no contiene un jardín válido.");
+            }
+            String[][] jardin = new String[datos.plantas.length][datos.plantas[0].length];
+            for (int f = 0; f < jardin.length; f++) {
+                for (int c = 0; c < jardin[f].length; c++) jardin[f][c] = "VACIO";
+            }
+            PanelPartida auxiliar = new PanelPartida(ventana, jardin,
+                    datos.duracionInicial, datos.cerebrosActuales, datos.dificultad, jugador);
+            try {
+                auxiliar.pausarPartida();
+                restaurada = auxiliar.reconstruirPartida(datos);
+                restaurada.pausarPartida();
+            } finally {
+                auxiliar.juegoActivo = false;
+                auxiliar.detenerGeneradorCerebros();
+                if (auxiliar.hiloCronometro != null) auxiliar.hiloCronometro.interrupt();
+                if (auxiliar.motor != null) auxiliar.motor.detenerJuego();
+            }
+            ventana.cambiarPantalla(restaurada);
+            restaurada.reanudarPartida();
+            return true;
+        } catch (IOException | IllegalArgumentException ex) {
+            ventana.setCuentaActual(cuentaAnterior);
+            if (restaurada != null) {
+                restaurada.juegoActivo = false;
+                restaurada.detenerGeneradorCerebros();
+                if (restaurada.hiloCronometro != null) restaurada.hiloCronometro.interrupt();
+                if (restaurada.motor != null) restaurada.motor.detenerJuego();
+            }
+            JOptionPane.showMessageDialog(ventana, "Error cargando partida: " + ex.getMessage(),
+                    "Carga fallida", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+    }
+
+    private static File elegirPartidaGuardada(java.awt.Component padre, String jugador)
+            throws IOException {
+        File carpeta = carpetaDePartidas(jugador);
+        JFileChooser selector = new JFileChooser(carpeta);
+        selector.setDialogTitle("Selecciona una partida de " + jugador);
+        selector.setFileFilter(new FileNameExtensionFilter("Partidas binarias (*.dat)", "dat"));
+        if (selector.showOpenDialog(padre) != JFileChooser.APPROVE_OPTION) return null;
+        File elegido = selector.getSelectedFile().getCanonicalFile();
+        if (!elegido.isFile()
+                || !elegido.getParentFile().equals(carpeta.getCanonicalFile())
+                || !elegido.getName().endsWith(".dat")) {
+            throw new IOException("Selecciona un archivo .dat de la cuenta actual.");
+        }
+        return elegido;
+    }
+
+    /** Ctrl+S guarda únicamente si el juego está pausado. */
+    private void configurarAtajoGuardado() {
+        getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+                KeyStroke.getKeyStroke("control S"), "guardarPartida");
+        getActionMap().put("guardarPartida", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                guardarPartidaBinaria();
+            }
+        });
+    }
+
+    /** Ctrl+L reconstruye una partida guardada en versión 1. */
+    private void configurarAtajoCarga() {
+        getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+                KeyStroke.getKeyStroke("control L"), "cargarPartida");
+        getActionMap().put("cargarPartida", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                cargarPartidaBinaria();
+            }
+        });
+    }
+
+    private void cargarPartidaBinaria() {
+        if (!juegoActivo || !partidaPausada) {
+            JOptionPane.showMessageDialog(this, "Primero pausa el juego.");
+            return;
+        }
+        try {
+            File archivo = elegirPartidaGuardada(this, jugadorActual);
+            if (archivo == null) return;
+            Cargar.DatosPartida datos = new Cargar().leer(archivo.getPath());
+            PanelPartida nueva = reconstruirPartida(datos);
+            nueva.establecerJugadorActual(jugadorActual);
+            nueva.pausarPartida();
+            juegoActivo = false;
+            detenerGeneradorCerebros();
+            if (hiloCronometro != null) hiloCronometro.interrupt();
+            if (motor != null) motor.detenerJuego();
+            ventana.cambiarPantalla(nueva);
+            nueva.reanudarPartida();
+        } catch (IOException | IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this, "No se pudo cargar: " + ex.getMessage(),
+                    "Carga fallida", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private PanelPartida reconstruirPartida(Cargar.DatosPartida d)
+            throws IOException {
+        int filas = d.plantas.length;
+        int columnas = d.plantas[0].length;
+        if (d.podadorasActivas.length != filas) {
+            throw new IOException("No coincide la cantidad de podadoras y filas.");
+        }
+        if (d.cerebrosX.length > MAX_CEREBROS) {
+            throw new IOException("Demasiados cerebros visibles en el archivo.");
+        }
+        String[][] jardin = new String[filas][columnas];
+        for (int f = 0; f < filas; f++) {
+            for (int c = 0; c < columnas; c++) {
+                Cargar.PlantaGuardada pg = d.plantas[f][c];
+                jardin[f][c] = pg == null ? "VACIO" : tipoPlantaParaJson(pg.tipo);
+            }
+        }
+        // Crear el panel y sus componentes sin modificar la partida actual.
+        PanelPartida nueva = new PanelPartida(ventana, jardin,
+                d.duracionInicial, d.cerebrosActuales, d.dificultad, jugadorActual);
+        nueva.segundosRestantes = d.segundosRestantes;
+        nueva.duracionInicial = d.duracionInicial;
+        nueva.zombisInvocados = d.zombisInvocados;
+        // El guardado V1 no incluye cerebros gastados; no se pueden reconstruir retrospectivamente.
+        nueva.plantasDestruidasPrevias = d.plantasDestruidas;
+        nueva.lblTiempo.setText(nueva.formatearTiempo(d.segundosRestantes));
+        nueva.gestorHordas.actualizar(d.segundosRestantes);
+        nueva.ultimoBloqueMostrado = nueva.gestorHordas.getBloqueActual();
+        nueva.lblHorda.setText(nueva.gestorHordas.getDescripcion());
+
+        for (int f = 0; f < filas; f++) {
+            for (int c = 0; c < columnas; c++) {
+                Cargar.PlantaGuardada pg = d.plantas[f][c];
+                if (pg == null) continue;
+                Planta planta = nueva.tablero.getPlanta(f,c);
+                if (planta == null) throw new IOException("Planta no construida: " + pg.tipo);
+                if (pg.salud <= 0 || pg.salud > planta.getSaludMaxima()) {
+                    throw new IOException("Salud inválida de planta: " + pg.tipo);
+                }
+                planta.recibirDaño(planta.getSalud() - pg.salud);
+            }
+        }
+
+        for (Cargar.ZombiGuardado zg : d.zombis) {
+            if (zg == null) continue;
+            if (zg.fila < 0 || zg.fila >= filas || zg.salud <= 0
+                    || !Double.isFinite(zg.posicionX)) {
+                throw new IOException("Zombi inválido en el guardado.");
+            }
+            Zombi z = construirZombiGuardado(zg);
+            // La versión 1 solo persiste salud total; la protección especial
+            // no está disponible para restaurarla fielmente.
+            if (zg.salud < z.getSalud()) {
+                z.recibirDaño(z.getSalud() - zg.salud);
+            }
+            nueva.tablero.agregarZombi(z);
+        }
+
+        for (Cargar.GuisanteGuardado gg : d.guisantes) {
+            if (gg == null) continue;
+            if (gg.fila < 0 || gg.fila >= filas || !Double.isFinite(gg.posicionX)) {
+                throw new IOException("Guisante inválido en el guardado.");
+            }
+            nueva.tablero.agregarGuisante(new Guisantes(
+                    gg.posicionX, gg.fila, gg.dano, 6.0,
+                    gg.direccion, gg.congelante));
+        }
+        boolean[] activas = nueva.tablero.getPodadorasActivas();
+        boolean[] moviendo = nueva.tablero.getPodadorasEnMovimiento();
+        double[] posiciones = nueva.tablero.getPosicionesPodadoras();
+        for (int f = 0; f < filas; f++) {
+            activas[f] = d.podadorasActivas[f];
+            moviendo[f] = d.podadorasEnMovimiento[f];
+            posiciones[f] = d.posicionesPodadoras[f];
+        }
+        // No contar de nuevo las podadoras consumidas antes del guardado.
+        for (int f = 0; f < filas; f++) {
+            if (!activas[f]) nueva.podadorasUsadasAlCargar++;
+        }
+        for (int i = 0; i < d.cerebrosX.length; i++) {
+            nueva.listaCerebros[i] = new Cerebro(d.cerebrosX[i], d.cerebrosY[i]);
+        }
+        nueva.panelJardin.actualizarPlantas(nueva.tablero.getCasillas());
+        nueva.repaint();
+        return nueva;
+    }
+
+    private String tipoPlantaParaJson(String tipo) throws IOException {
+        switch (tipo) {
+            case "Lanzaguisantes": return "LANZAGUISANTES";
+            case "Hielaguisantes": return "HIELAGUISANTES";
+            case "Nuez": return "NUEZ";
+            case "Patatapum": return "PATATAPUM";
+            case "PlantaCarronivora": return "CARRONIVORA";
+            case "PinchoHierba": return "PINCHOHIERBA";
+            case "Bipetidora": return "BIPETIDORA";
+            default: throw new IOException("Tipo de planta desconocido: " + tipo);
+        }
+    }
+
+    private Zombi construirZombiGuardado(Cargar.ZombiGuardado z)
+            throws IOException {
+        switch (z.tipo) {
+            case "ZombiComun": return new ZombiComun(z.fila, z.posicionX);
+            case "ZombiCaraCono": return new ZombiCaraCono(z.fila, z.posicionX);
+            case "ZombiSaltador": return new ZombiSaltador(z.fila, z.posicionX);
+            case "ZombiDeportista": return new ZombiDeportista(z.fila, z.posicionX);
+            case "ZombiBailon": return new ZombiBailon(z.fila, z.posicionX);
+            case "ZombiBailarin": return new ZombiBailarin(z.fila, z.posicionX);
+            case "Zombistein": return new Zombistein(z.fila, z.posicionX);
+            case "Zombidito": return new Zombidito(z.fila, z.posicionX);
+            default: throw new IOException("Tipo de zombi desconocido: " + z.tipo);
+        }
+    }
+
+    private void guardarPartidaBinaria() {
+        if (!juegoActivo || !partidaPausada) {
+            JOptionPane.showMessageDialog(this, "Primero pausa la partida.");
+            return;
+        }
+        File archivo = guardarPartidaEnCuenta();
+        if (archivo != null) {
+            JOptionPane.showMessageDialog(this, "Partida guardada en:\n" + archivo);
+        }
+    }
+
+    private File guardarPartidaEnCuenta() {
+        int cantidad = 0;
+        for (int i = 0; i < listaCerebros.length; i++) {
+            Cerebro b = listaCerebros[i];
+            if (b != null && b.isActivo() && !b.haExpirado()) cantidad++;
+        }
+        int[] posicionesX = new int[cantidad];
+        int[] posicionesY = new int[cantidad];
+        int indice = 0;
+        for (int i = 0; i < listaCerebros.length; i++) {
+            Cerebro b = listaCerebros[i];
+            if (b != null && b.isActivo() && !b.haExpirado()) {
+                posicionesX[indice] = b.getX();
+                posicionesY[indice] = b.getY();
+                indice++;
+            }
+        }
+        try {
+            String nombrePartida = JOptionPane.showInputDialog(
+                    this,
+                    "Ingresa un nombre para la partida:",
+                    "Guardar partida",
+                    JOptionPane.QUESTION_MESSAGE
+            );
+
+            if (nombrePartida == null) {
+                return null;
+            }
+
+            nombrePartida = nombrePartida.trim();
+
+            if (nombrePartida.isEmpty()) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Debes ingresar un nombre para la partida."
+                );
+                return null;
+            }
+
+            if (!nombrePartida.matches("[a-zA-Z0-9_-]{1,40}")) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Usa solo letras, números, guiones o guion bajo."
+                );
+                return null;
+            }
+
+            // La cuenta es propietaria del guardado; el nombre es solo del archivo.
+            String cuenta = ventana.getCuentaActual();
+            if (cuenta == null || cuenta.trim().isEmpty()) {
+                cuenta = jugadorActual;
+            }
+            File carpeta = carpetaDePartidas(cuenta);
+            jugadorActual = cuenta;
+
+            File archivo = new File(
+                    carpeta,
+                    nombrePartida + "_"
+                            + LocalDateTime.now().format(FORMATO_FECHA)
+                            + ".dat"
+            );
+            new Guardar().guardar(archivo.getPath(), tablero, duracionInicial,
+                    segundosRestantes, cerebrosActuales, dificultadJuego,
+                    zombisInvocados, plantasDestruidasPrevias + motor.getPlantasDestruidas(),
+                    gestorHordas.getBloqueActual(), posicionesX, posicionesY);
+            return archivo;
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this, "No se pudo guardar: " + ex.getMessage(),
+                    "Error de guardado", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
     }
 
     private void construirTableroJardin(String[][] jardinDatos) {
@@ -387,7 +885,7 @@ public class PanelPartida extends JPanel {
 
     public void intentarInvocarZombiEnFila(int filaSeleccionada) {
 
-        if (!juegoActivo) {
+        if (!juegoActivo || partidaPausada) {
             return;
         }
 
@@ -413,7 +911,9 @@ public class PanelPartida extends JPanel {
             return;
         }
 
-        int costo = obtenerCostoZombi(zombiSeleccionado);
+        int costoOriginal = obtenerCostoZombi(zombiSeleccionado);
+
+        int costo = gestorHordas.calcularCosto(costoOriginal);
 
         if (cerebrosActuales < costo) {
 
@@ -461,6 +961,7 @@ public class PanelPartida extends JPanel {
 
         // Cobrar solamente cuando se haya creado y agregado.
         cerebrosActuales -= costo;
+        cerebrosGastadosEnPartida += costo;
         lblCerebros.setText(String.valueOf(cerebrosActuales));
 
         // Iniciar el motor. Si ya está activo, no crea otro hilo.
@@ -484,34 +985,64 @@ public class PanelPartida extends JPanel {
                 return 50;
 
             case "ZombiCaraCono":
-                return 75;
+                return 100;
 
             case "ZombiSaltador":
                 return 100;
 
             case "ZombiDeportista":
-                return 125;
+                return 150;
 
             case "ZombiBailon":
                 return 150;
 
             case "Zombistein":
-                return 300;
+                return 350;
 
             default:
                 return 50;
         }
     }
 
+    // Un solo hilo planifica todos los generadores; las operaciones Swing van al EDT.
     private void iniciarGeneradoresCerebros() {
+
+        int cantidadGeneradores;
+
+        if (dificultadJuego.equalsIgnoreCase("Facil")
+                || dificultadJuego.equalsIgnoreCase("Fácil")) {
+
+            cantidadGeneradores = 6;
+
+        } else if (dificultadJuego.equalsIgnoreCase("Dificil")
+                || dificultadJuego.equalsIgnoreCase("Difícil")) {
+
+            cantidadGeneradores = 4;
+
+        } else {
+            cantidadGeneradores = 5;
+        }
+
+        // Los tiempos se cuentan solamente mientras se juega.
+        final long[] proximasGeneraciones =
+                new long[cantidadGeneradores];
+
+        final long[] tiempoActivo = {0L};
+
+        final long[] ultimoInstante = {
+                System.nanoTime()
+        };
+
+        for (int i = 0; i < cantidadGeneradores; i++) {
+            proximasGeneraciones[i] = intervaloAleatorioCerebro();
+        }
 
         hiloGeneradorCerebros = new Thread(() -> {
 
-            while (juegoActivo
-                    && !Thread.currentThread().isInterrupted()) {
+            while (!Thread.currentThread().isInterrupted()) {
 
                 try {
-                    Thread.sleep(5000);
+                    Thread.sleep(100);
 
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -520,21 +1051,75 @@ public class PanelPartida extends JPanel {
 
                 SwingUtilities.invokeLater(() -> {
 
-                    if (juegoActivo) {
+                    if (!juegoActivo) {
+                        return;
+                    }
 
-                        int posX = 94
-                                + (int) (Math.random() * 715);
+                    long ahora = System.nanoTime();
 
-                        int posY = 95
-                                + (int) (Math.random() * 409);
+                    long diferencia =
+                            (ahora - ultimoInstante[0]) / 1000000L;
 
-                        agregarCerebroFlotante(posX, posY);
+                    ultimoInstante[0] = ahora;
+
+                    // Mientras está pausado, no avanza el reloj.
+                    if (partidaPausada) {
+                        return;
+                    }
+
+                    tiempoActivo[0] += Math.max(0L, diferencia);
+
+                    for (int i = 0;
+                         i < proximasGeneraciones.length;
+                         i++) {
+
+                        if (tiempoActivo[0] >= proximasGeneraciones[i]) {
+
+                            int posX = 94
+                                    + (int) (Math.random() * 715);
+
+                            int posY = 95
+                                    + (int) (Math.random() * 409);
+
+                            agregarCerebroFlotante(posX, posY);
+
+                            proximasGeneraciones[i] =
+                                    tiempoActivo[0]
+                                            + intervaloAleatorioCerebro();
+                        }
                     }
                 });
             }
-        });
+        }, "GeneradoresCerebros");
 
         hiloGeneradorCerebros.start();
+    }
+
+
+
+    private long intervaloAleatorioCerebro() {
+        return 5000L + (long) (Math.random() * 10001L);
+    }
+
+    // Cada planta destruida por un zombi suelta entre 3 y 6 cerebros.
+    private void soltarCerebrosPorPlanta(int fila, int columna) {
+        if (!juegoActivo || panelJardin == null || tablero == null) return;
+        int cantidad = 3 + (int) (Math.random() * 4);
+        double anchoCelda = (double) panelJardin.getWidth() / tablero.getColumnas();
+        double altoCelda = (double) panelJardin.getHeight() / tablero.getFilas();
+        int centroX = panelJardin.getX() + (int) ((columna + 0.5) * anchoCelda);
+        int centroY = panelJardin.getY() + (int) ((fila + 0.5) * altoCelda);
+        int minX = panelJardin.getX();
+        int minY = panelJardin.getY();
+        int maxX = minX + panelJardin.getWidth() - TAMANO_CEREBRO;
+        int maxY = minY + panelJardin.getHeight() - TAMANO_CEREBRO;
+        for (int i = 0; i < cantidad; i++) {
+            int x = centroX - TAMANO_CEREBRO / 2 + (int) (Math.random() * 71) - 35;
+            int y = centroY - TAMANO_CEREBRO / 2 + (int) (Math.random() * 71) - 35;
+            x = Math.max(minX, Math.min(maxX, x));
+            y = Math.max(minY, Math.min(maxY, y));
+            agregarCerebroFlotante(x, y);
+        }
     }
 
     private void agregarCerebroFlotante(int x, int y) {
@@ -560,7 +1145,7 @@ public class PanelPartida extends JPanel {
 
     private boolean verificarClicCerebro(int px, int py) {
 
-        if (!juegoActivo) {
+        if (!juegoActivo || partidaPausada) {
             return false;
         }
 
@@ -609,12 +1194,42 @@ public class PanelPartida extends JPanel {
                     break;
                 }
 
+                // Pausar no debe finalizar el hilo del cronómetro.
+                if (partidaPausada) {
+                    continue;
+                }
+
                 SwingUtilities.invokeLater(() -> {
-                    if (!juegoActivo) {
+                    // Evitar descontar tiempo si la pausa ocurrió
+                    // antes de ejecutarse esta tarea en el EDT.
+                    if (!juegoActivo || partidaPausada) {
                         return;
                     }
 
                     segundosRestantes = Math.max(0, segundosRestantes - 1);
+
+                    gestorHordas.actualizar(segundosRestantes);
+
+                    int nuevoBloque = gestorHordas.getBloqueActual();
+
+                    if (nuevoBloque != ultimoBloqueMostrado) {
+
+                        ultimoBloqueMostrado = nuevoBloque;
+
+                        System.out.println(
+                                "Cambio de bloque: " + nuevoBloque
+                        );
+
+                        if (gestorHordas.hayHorda()) {
+                            System.out.println(
+                                    gestorHordas.getDescripcion()
+                            );
+                        }
+                    }
+
+                    lblHorda.setText(gestorHordas.getDescripcion());
+
+
 
                     for (int i = 0; i < listaCerebros.length; i++) {
                         if (listaCerebros[i] != null
@@ -667,7 +1282,40 @@ public class PanelPartida extends JPanel {
         }
 
         int transcurrido = duracionInicial - segundosRestantes;
-        int destruidas = motor != null ? motor.getPlantasDestruidas() : 0;
+        int destruidas = plantasDestruidasPrevias + (motor != null ? motor.getPlantasDestruidas() : 0);
+
+        // Registrar una sola vez; guardar y salir no registra una partida terminada.
+        int podadorasConsumidas = 0;
+        for (boolean activa : tablero.getPodadorasActivas()) {
+            if (!activa) podadorasConsumidas++;
+        }
+        podadorasConsumidas = Math.max(0, podadorasConsumidas - podadorasUsadasAlCargar);
+
+
+        String cuentaEstadisticas = jugadorActual;
+
+        if (cuentaEstadisticas == null || cuentaEstadisticas.trim().isEmpty()) {
+            cuentaEstadisticas = ventana.getCuentaActual();
+        }
+
+        if (cuentaEstadisticas == null || cuentaEstadisticas.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "No se encontró la cuenta del jugador. "
+                            + "No se guardarán estadísticas con un nombre incorrecto."
+            );
+            return;
+        }
+
+        try {
+            new ManejadorEstadisticas().registrar(cuentaEstadisticas, victoria,
+                    Math.max(0, transcurrido), destruidas, zombisInvocados,
+                    cerebrosGastadosEnPartida, podadorasConsumidas);
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this,
+                    "La partida terminó, pero no se pudieron guardar las estadísticas: " + ex.getMessage(),
+                    "Error de estadísticas", JOptionPane.ERROR_MESSAGE);
+        }
 
         JOptionPane.showMessageDialog(
                 this,
@@ -841,12 +1489,12 @@ public class PanelPartida extends JPanel {
 
                         int y = panelJardin.getY()
                                 + zombi.getFila() * altoFila
-                                + (altoFila - 70) / 2;
+                                + (altoFila - ALTO_ZOMBI) / 2;
 
                         // Elegir la imagen según la clase del zombi.
                         Image imagen = obtenerImagenZombi(zombi);
                         if (imagen != null && imagen.getWidth(this) > 0) {
-                            gJardin.drawImage(imagen, x, y, 50, 70, this);
+                            gJardin.drawImage(imagen, x, y, ANCHO_ZOMBI, ALTO_ZOMBI, this);
                         } else {
                             gJardin.setColor(Color.GRAY);
                             gJardin.fillOval(x, y, 40, 55);
@@ -899,18 +1547,29 @@ public class PanelPartida extends JPanel {
         }
     }
 
+    /** Obtiene la imagen según el tipo y el estado del zombi. */
     private Image obtenerImagenZombi(Zombi zombi) {
-
         if (zombi instanceof ZombiCaraCono) {
-            return imagenZombiCaraCono;
-        }
-
-        if (zombi instanceof ZombiSaltador) {
-            return imagenZombiSaltador;
+            ZombiCaraCono cono = (ZombiCaraCono) zombi;
+            return cono.tieneCono() ? imagenZombiCaraCono : imagenZombiSinCono;
         }
 
         if (zombi instanceof ZombiDeportista) {
-            return imagenZombiDeportista;
+            ZombiDeportista deportista = (ZombiDeportista) zombi;
+            return deportista.tieneCasco() ? imagenZombiDeportista : imagenZombiSinCasco;
+        }
+
+        if (zombi instanceof ZombiSaltador) {
+            ZombiSaltador saltador = (ZombiSaltador) zombi;
+            return saltador.tieneGarrocha() ? imagenZombiSaltador : imagenZombiSinGarrocha;
+        }
+
+        if (zombi instanceof Zombidito) {
+            return imagenZombidito;
+        }
+
+        if (zombi instanceof ZombiBailarin) {
+            return imagenZombiBailarin;
         }
 
         if (zombi instanceof ZombiBailon) {
@@ -921,7 +1580,26 @@ public class PanelPartida extends JPanel {
             return imagenZombistein;
         }
 
+        if (zombi instanceof ZombiComun) {
+            ZombiComun comun = (ZombiComun) zombi;
+            if (comun.haPerdidoBrazo()
+                    && imagenZombiSinBrazo != null
+                    && imagenZombiSinBrazo.getWidth(this) > 0) {
+                return imagenZombiSinBrazo;
+            }
+        }
+
         return imagenZombiNormal;
+    }
+
+    /** Imagen opcional: permite arrancar aunque falte algún recurso gráfico. */
+    private Image cargarImagenOpcional(String ruta, Image alternativa) {
+        ImageIcon icono = new ImageIcon(ruta);
+        if (icono.getIconWidth() > 0 && icono.getIconHeight() > 0) {
+            return icono.getImage();
+        }
+        System.err.println("No se encontró la imagen opcional: " + ruta);
+        return alternativa;
     }
 
     private void detenerGeneradorCerebros() {
