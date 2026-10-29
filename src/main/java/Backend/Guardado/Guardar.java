@@ -30,7 +30,7 @@ public class Guardar {
         // Un formato versionado permite implementar la carga sin Java Serializable.
         try (DataOutputStream out = new DataOutputStream(
                 new BufferedOutputStream(new FileOutputStream(destino)))) {
-            out.writeUTF("IPC1_PVZ_INVERSO");
+            out.writeUTF("Omega17D");
             out.writeInt(VERSION);
             out.writeInt(duracionInicial);
             out.writeInt(segundosRestantes);

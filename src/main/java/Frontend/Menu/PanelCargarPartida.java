@@ -22,7 +22,7 @@ public class PanelCargarPartida extends JPanel {
         setSize(1000, 600);
 
         fondo = new ImageIcon(
-                "src/main/resources/Fondos/cargar.png"
+                getClass().getResource("/Fondos/cargar.png")
         ).getImage();
 
         construirInterfaz();
@@ -272,9 +272,10 @@ public class PanelCargarPartida extends JPanel {
 
         // Utilizamos la ruta real, no el texto mostrado
         // en el JComboBox.
-        //
+
         // Este método vincula la cuenta y reconstruye
         // la partida binaria guardada.
+
         PanelPartida.cargarArchivoDesdeMenu(
                 ventana,
                 cuenta,

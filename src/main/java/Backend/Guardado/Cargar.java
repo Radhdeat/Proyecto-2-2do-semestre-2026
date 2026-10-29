@@ -6,9 +6,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
-/** Lee exactamente la versión 1 emitida por GuardadorPartida. */
 public class Cargar {
-    private static final String FIRMA = "IPC1_PVZ_INVERSO";
+    private static final String FIRMA = "Omega17D";
 
     public static class PlantaGuardada {
         public String tipo;

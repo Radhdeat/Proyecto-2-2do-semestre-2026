@@ -9,20 +9,34 @@ import java.io.IOException;
 public class PanelEstadisticas extends JPanel {
     private final VentanaPrincipal ventana;
     private final ManejadorEstadisticas manejador = new ManejadorEstadisticas();
-    private final Image imagenFondo;
+    private Image imagenFondo;
     private JLabel lblPartidasJugadas, lblPartidasGanadas, lblPartidasPerdidas, lblPlantasDestruidas;
     private JLabel lblZombisInvocados, lblCerebrosGastados, lblMejorTiempo, lblPodadoras;
     private final JLabel[] lblTopRapidos = new JLabel[5];
     private final JLabel[] lblTopDestructores = new JLabel[5];
     private final JLabel[] lblTopExitosos = new JLabel[5];
 
+
     public PanelEstadisticas(VentanaPrincipal ventana) {
         this.ventana = ventana;
-        setLayout(null); setSize(1000, 600);
-        imagenFondo = new ImageIcon("src/main/resources/Fondos/estadisticas.png").getImage();
+
+        setLayout(null);
+        setSize(1000, 600);
+
+        // Cargar la imagen desde los recursos del proyecto
+        java.net.URL rutaFondo =
+                getClass().getResource("/Fondos/estadisticas.png");
+
+        if (rutaFondo != null) {
+            imagenFondo = new ImageIcon(rutaFondo).getImage();
+        } else {
+            System.err.println("No se encontró el fondo de estadísticas");
+        }
+
         construirInterfaz();
         cargarDatosReales();
     }
+
 
     private void construirInterfaz() {
         lblPartidasJugadas = crearLabelDato(340,150,175,28);

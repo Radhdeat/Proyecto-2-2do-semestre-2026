@@ -539,7 +539,7 @@ public class MotorJuego implements Runnable {
 
                 continue;
             }
-            // Inactiva: se puede atacar. Activa: contacto resuelto por explosión.
+            // Inactiva y Activa:
             if (planta instanceof Patatapum && ((Patatapum) planta).isActiva()) {
                 continue;
             }

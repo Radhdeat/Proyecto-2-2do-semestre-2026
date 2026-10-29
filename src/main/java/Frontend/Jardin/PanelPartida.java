@@ -11,6 +11,7 @@ import Backend.Guardado.Guardar;
 import Backend.Estadisticas.ManejadorEstadisticas;
 import java.io.IOException;
 import java.io.File;
+import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import javax.swing.JFileChooser;
@@ -45,7 +46,6 @@ public class PanelPartida extends JPanel {
     private int zombisInvocados = 0;
     private int cerebrosGastadosEnPartida = 0;
     private int podadorasUsadasAlCargar = 0;
-    // Estadísticas anteriores a una carga.
     private int plantasDestruidasPrevias = 0;
     private int duracionInicial;
     private boolean resultadoMostrado = false;
@@ -107,15 +107,11 @@ public class PanelPartida extends JPanel {
     private static final int ANCHO_GUISANTE = 25;
     private static final int ALTO_GUISANTE = 25;
 
-
-    // Mantiene compatibilidad con el constructor antiguo; antes de guardar
-    // debes vincular el jugador mediante establecerJugadorActual(...).
     public PanelPartida(VentanaPrincipal ventana, String[][] jardinDatos,
                         int duracionSegundos, int cerebrosIniciales, String dificultad) {
         this(ventana, jardinDatos, duracionSegundos, cerebrosIniciales, dificultad, ventana.getCuentaActual());
     }
 
-    // Usa este constructor desde el menú cuando la cuenta ya está seleccionada.
     public PanelPartida(VentanaPrincipal ventana, String[][] jardinDatos,
                         int duracionSegundos, int cerebrosIniciales, String dificultad,
                         String jugadorActual) {
@@ -143,41 +139,40 @@ public class PanelPartida extends JPanel {
         setLayout(null);
         setOpaque(true);
 
-        imagenFondoTablero = new ImageIcon("src/main/resources/Fondos/Tablero.png").getImage();
+        imagenFondoTablero = cargarImagen("/Fondos/Tablero.png");
 
-        imagenCerebro = new ImageIcon("src/main/resources/Zombis/cerebro.png").getImage();
+        imagenCerebro = cargarImagen("/Zombis/cerebro.png");
 
-        imagenZombiNormal = new ImageIcon("src/main/resources/Zombis/normal.gif").getImage();
+        imagenZombiNormal = cargarImagen("/Zombis/normal.gif");
 
-        imagenZombiCaraCono = new ImageIcon("src/main/resources/Zombis/cono.png").getImage();
+        imagenZombiCaraCono = cargarImagen("/Zombis/cono.png");
 
-        imagenZombiSaltador = new ImageIcon("src/main/resources/Zombis/saltador.png").getImage();
+        imagenZombiSaltador = cargarImagen("/Zombis/saltador.png");
 
-        imagenZombiDeportista = new ImageIcon("src/main/resources/Zombis/deportista.png").getImage();
+        imagenZombiDeportista = cargarImagen("/Zombis/deportista.png");
 
-        imagenZombiBailon = new ImageIcon("src/main/resources/Zombis/bailon.png").getImage();
+        imagenZombiBailon = cargarImagen("/Zombis/bailon.png");
 
-        imagenZombistein = new ImageIcon("src/main/resources/Zombis/zombistein.png").getImage();
+        imagenZombistein = cargarImagen("/Zombis/zombistein.png");
 
-        imagenPodadora = new ImageIcon("src/main/resources/Recursos/Podadora.png").getImage();
+        imagenPodadora = cargarImagen("/Recursos/Podadora.png");
 
-        imagenGuisante = new ImageIcon("src/main/resources/Recursos/guisante.png").getImage();
+        imagenGuisante = cargarImagen("/Recursos/guisante.png");
 
-        imagenGuisanteCongelado = new ImageIcon("src/main/resources/Recursos/guisanteCongelado.png").getImage();
+        imagenGuisanteCongelado = cargarImagen("/Recursos/guisanteCongelado.png");
 
-        imagenZombiSinBrazo = new ImageIcon("src/main/resources/Zombis/normalSin.gif").getImage();
+        imagenZombiSinBrazo = cargarImagen("/Zombis/normalSin.gif");
 
-        imagenZombiSinCono = cargarImagenOpcional("src/main/resources/Zombis/sincono.gif", imagenZombiNormal);
+        imagenZombiSinCono = cargarImagenOpcional("/Zombis/sincono.gif", imagenZombiNormal);
 
-        imagenZombiSinCasco = cargarImagenOpcional("src/main/resources/Zombis/sincasco.png", imagenZombiDeportista);
+        imagenZombiSinCasco = cargarImagenOpcional("/Zombis/sincasco.png", imagenZombiDeportista);
 
-        imagenZombiSinGarrocha = cargarImagenOpcional("src/main/resources/Zombis/saltadorSin.png", imagenZombiSaltador);
+        imagenZombiSinGarrocha = cargarImagenOpcional("/Zombis/saltadorSin.png", imagenZombiSaltador);
 
-        imagenZombidito = cargarImagenOpcional("src/main/resources/Zombis/zombidito.png", imagenZombiNormal);
+        imagenZombidito = cargarImagenOpcional("/Zombis/zombidito.png", imagenZombiNormal);
 
-        imagenZombiBailarin = cargarImagenOpcional("src/main/resources/Zombis/bailarin.png", imagenZombiBailon);
+        imagenZombiBailarin = cargarImagenOpcional("/Zombis/bailarin.png", imagenZombiBailon);
 
-        // Crear el modelo antes de construir el tablero visual.
         if (jardinDatos == null || jardinDatos.length == 0 || jardinDatos[0] == null || jardinDatos[0].length == 0) {
             throw new IllegalArgumentException(
                     "Los datos del jardín no pueden estar vacíos."
@@ -190,7 +185,6 @@ public class PanelPartida extends JPanel {
         construirHUD();
         construirTableroJardin(jardinDatos);
 
-        // El motor actualizará el juego y solicitará repintar la interfaz.
         motor = new MotorJuego(tablero, () -> {
 
             panelJardin.actualizarPlantas(tablero.getCasillas());
@@ -202,7 +196,6 @@ public class PanelPartida extends JPanel {
         motor.setEventoPlantaDestruida((fila, columna) ->
                 soltarCerebrosPorPlanta(fila, columna));
         motor.configurarInteligencia(dificultadJuego);
-        // Las plantas se activan desde el inicio, incluso si aún no invocas zombis.
         motor.iniciarJuego();
 
 
@@ -277,7 +270,6 @@ public class PanelPartida extends JPanel {
             add(btnZombi);
         }
 
-        // Botón de pausa.
         JButton btnPausa = new JButton();
 
         btnPausa.setBounds(
@@ -328,7 +320,6 @@ public class PanelPartida extends JPanel {
 
         add(lblDificultad);
 
-        // Botón invisible para conservar el diseño de la imagen.
         JButton btnSalir = new JButton();
 
         btnSalir.setBounds(865, 15, 110, 42);
@@ -386,10 +377,6 @@ public class PanelPartida extends JPanel {
         repaint();
     }
 
-
-
-
-    /** Nombre de la cuenta seleccionada. Se configura desde el menú. */
     public void establecerJugadorActual(String jugador) {
         this.jugadorActual = jugador;
     }
@@ -416,7 +403,6 @@ public class PanelPartida extends JPanel {
         if (opcion == 1) {
             guardarYSalir();
         } else {
-            // Cerrar la ventana también retoma la partida.
             reanudarPartida();
         }
     }
@@ -424,7 +410,7 @@ public class PanelPartida extends JPanel {
     private void guardarYSalir() {
         if (!juegoActivo || !partidaPausada) return;
         File archivo = guardarPartidaEnCuenta();
-        if (archivo == null) return; // No abandonar la partida si falló el guardado.
+        if (archivo == null) return;
         juegoActivo = false;
         detenerGeneradorCerebros();
         if (hiloCronometro != null) hiloCronometro.interrupt();
@@ -435,7 +421,6 @@ public class PanelPartida extends JPanel {
         ventana.cambiarPantalla(new MenuInicio(ventana));
     }
 
-    /** Selecciona y carga una partida del jugador activo. */
     public static boolean cargarDesdeMenu(VentanaPrincipal ventana, String jugador) {
         try {
             File archivo = elegirPartidaGuardada(null, jugador);
@@ -448,9 +433,6 @@ public class PanelPartida extends JPanel {
         }
     }
 
-    /** Recibe el archivo concreto seleccionado en PanelCargarPartida.
-     *  No abre otra ventana y no crea una partida nueva desde el JSON.
-     */
     public static boolean cargarArchivoDesdeMenu(VentanaPrincipal ventana,
                                                  String jugador, File archivo) {
         PanelPartida restaurada = null;
@@ -467,12 +449,8 @@ public class PanelPartida extends JPanel {
                 throw new IOException("El archivo no pertenece a la cuenta actual.");
             }
             Cargar.DatosPartida datos = new Cargar().leer(validado.getPath());
-            // Vincular la sesión al propietario del archivo, incluso tras reiniciar la aplicación.
             ventana.setCuentaActual(jugador);
-            // El constructor de reconstruirPartida utiliza la ventana y la cuenta.
-            // Este objeto auxiliar no debe iniciar motores ni cronómetros.
-            // Construimos el restaurador mediante un panel inicial vacío,
-            // y detenemos sus procesos antes de mostrar la partida recuperada.
+
             if (datos.plantas == null || datos.plantas.length == 0
                     || datos.plantas[0] == null || datos.plantas[0].length == 0) {
                 throw new IOException("El archivo no contiene un jardín válido.");
@@ -526,7 +504,6 @@ public class PanelPartida extends JPanel {
         return elegido;
     }
 
-    /** Ctrl+S guarda únicamente si el juego está pausado. */
     private void configurarAtajoGuardado() {
         getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
                 KeyStroke.getKeyStroke("control S"), "guardarPartida");
@@ -538,7 +515,6 @@ public class PanelPartida extends JPanel {
         });
     }
 
-    /** Ctrl+L reconstruye una partida guardada en versión 1. */
     private void configurarAtajoCarga() {
         getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
                 KeyStroke.getKeyStroke("control L"), "cargarPartida");
@@ -591,13 +567,11 @@ public class PanelPartida extends JPanel {
                 jardin[f][c] = pg == null ? "VACIO" : tipoPlantaParaJson(pg.tipo);
             }
         }
-        // Crear el panel y sus componentes sin modificar la partida actual.
         PanelPartida nueva = new PanelPartida(ventana, jardin,
                 d.duracionInicial, d.cerebrosActuales, d.dificultad, jugadorActual);
         nueva.segundosRestantes = d.segundosRestantes;
         nueva.duracionInicial = d.duracionInicial;
         nueva.zombisInvocados = d.zombisInvocados;
-        // El guardado V1 no incluye cerebros gastados; no se pueden reconstruir retrospectivamente.
         nueva.plantasDestruidasPrevias = d.plantasDestruidas;
         nueva.lblTiempo.setText(nueva.formatearTiempo(d.segundosRestantes));
         nueva.gestorHordas.actualizar(d.segundosRestantes);
@@ -624,8 +598,6 @@ public class PanelPartida extends JPanel {
                 throw new IOException("Zombi inválido en el guardado.");
             }
             Zombi z = construirZombiGuardado(zg);
-            // La versión 1 solo persiste salud total; la protección especial
-            // no está disponible para restaurarla fielmente.
             if (zg.salud < z.getSalud()) {
                 z.recibirDaño(z.getSalud() - zg.salud);
             }
@@ -649,7 +621,6 @@ public class PanelPartida extends JPanel {
             moviendo[f] = d.podadorasEnMovimiento[f];
             posiciones[f] = d.posicionesPodadoras[f];
         }
-        // No contar de nuevo las podadoras consumidas antes del guardado.
         for (int f = 0; f < filas; f++) {
             if (!activas[f]) nueva.podadorasUsadasAlCargar++;
         }
@@ -747,7 +718,6 @@ public class PanelPartida extends JPanel {
                 return null;
             }
 
-            // La cuenta es propietaria del guardado; el nombre es solo del archivo.
             String cuenta = ventana.getCuentaActual();
             if (cuenta == null || cuenta.trim().isEmpty()) {
                 cuenta = jugadorActual;
@@ -786,8 +756,6 @@ public class PanelPartida extends JPanel {
                             return;
                         }
 
-                        // Si se recogió un cerebro con este clic,
-                        // no se debe invocar un zombi.
                         if (cerebroRecogidoEnClic) {
                             cerebroRecogidoEnClic = false;
                             return;
@@ -925,11 +893,9 @@ public class PanelPartida extends JPanel {
             return;
         }
 
-        // La posición X se mide desde el extremo izquierdo del jardín.
-        // El zombi comienza en el extremo izquierdo del jardín.
+
         double posicionInicial = 0;
 
-        // Crear el tipo de zombi seleccionado.
         Zombi zombi;
 
         switch (zombiSeleccionado) {
@@ -959,12 +925,10 @@ public class PanelPartida extends JPanel {
         tablero.agregarZombi(zombi);
         zombisInvocados++;
 
-        // Cobrar solamente cuando se haya creado y agregado.
         cerebrosActuales -= costo;
         cerebrosGastadosEnPartida += costo;
         lblCerebros.setText(String.valueOf(cerebrosActuales));
 
-        // Iniciar el motor. Si ya está activo, no crea otro hilo.
         motor.iniciarJuego();
 
         zombiSeleccionado = null;
@@ -1004,7 +968,6 @@ public class PanelPartida extends JPanel {
         }
     }
 
-    // Un solo hilo planifica todos los generadores; las operaciones Swing van al EDT.
     private void iniciarGeneradoresCerebros() {
 
         int cantidadGeneradores;
@@ -1023,7 +986,6 @@ public class PanelPartida extends JPanel {
             cantidadGeneradores = 5;
         }
 
-        // Los tiempos se cuentan solamente mientras se juega.
         final long[] proximasGeneraciones =
                 new long[cantidadGeneradores];
 
@@ -1062,7 +1024,6 @@ public class PanelPartida extends JPanel {
 
                     ultimoInstante[0] = ahora;
 
-                    // Mientras está pausado, no avanza el reloj.
                     if (partidaPausada) {
                         return;
                     }
@@ -1101,7 +1062,6 @@ public class PanelPartida extends JPanel {
         return 5000L + (long) (Math.random() * 10001L);
     }
 
-    // Cada planta destruida por un zombi suelta entre 3 y 6 cerebros.
     private void soltarCerebrosPorPlanta(int fila, int columna) {
         if (!juegoActivo || panelJardin == null || tablero == null) return;
         int cantidad = 3 + (int) (Math.random() * 4);
@@ -1194,14 +1154,11 @@ public class PanelPartida extends JPanel {
                     break;
                 }
 
-                // Pausar no debe finalizar el hilo del cronómetro.
                 if (partidaPausada) {
                     continue;
                 }
 
                 SwingUtilities.invokeLater(() -> {
-                    // Evitar descontar tiempo si la pausa ocurrió
-                    // antes de ejecutarse esta tarea en el EDT.
                     if (!juegoActivo || partidaPausada) {
                         return;
                     }
@@ -1284,7 +1241,6 @@ public class PanelPartida extends JPanel {
         int transcurrido = duracionInicial - segundosRestantes;
         int destruidas = plantasDestruidasPrevias + (motor != null ? motor.getPlantasDestruidas() : 0);
 
-        // Registrar una sola vez; guardar y salir no registra una partida terminada.
         int podadorasConsumidas = 0;
         for (boolean activa : tablero.getPodadorasActivas()) {
             if (!activa) podadorasConsumidas++;
@@ -1424,7 +1380,6 @@ public class PanelPartida extends JPanel {
 
             } else {
 
-                // Representación provisional si no se encuentra el PNG.
                 g.setColor(guisante.esCongelante()
                         ? Color.CYAN
                         : Color.GREEN);
@@ -1443,7 +1398,6 @@ public class PanelPartida extends JPanel {
     @Override
     protected void paintChildren(Graphics g) {
 
-        // Dibujar primero los componentes Swing.
         super.paintChildren(g);
         dibujarPodadoras(g);
 
@@ -1455,7 +1409,6 @@ public class PanelPartida extends JPanel {
 
         try {
 
-            // Limitar el dibujo al área del jardín.
             gJardin.clipRect(
                     panelJardin.getX(),
                     panelJardin.getY(),
@@ -1463,7 +1416,6 @@ public class PanelPartida extends JPanel {
                     panelJardin.getHeight()
             );
 
-            // Dibujar zombis registrados en el modelo.
             if (tablero != null) {
 
                 int filas = tablero.getFilas();
@@ -1491,7 +1443,6 @@ public class PanelPartida extends JPanel {
                                 + zombi.getFila() * altoFila
                                 + (altoFila - ALTO_ZOMBI) / 2;
 
-                        // Elegir la imagen según la clase del zombi.
                         Image imagen = obtenerImagenZombi(zombi);
                         if (imagen != null && imagen.getWidth(this) > 0) {
                             gJardin.drawImage(imagen, x, y, ANCHO_ZOMBI, ALTO_ZOMBI, this);
@@ -1505,7 +1456,6 @@ public class PanelPartida extends JPanel {
 
             dibujarGuisantes(gJardin);
 
-            // Dibujar cerebros flotantes.
             for (int i = 0; i < listaCerebros.length; i++) {
 
                 Cerebro cerebro = listaCerebros[i];
@@ -1547,7 +1497,6 @@ public class PanelPartida extends JPanel {
         }
     }
 
-    /** Obtiene la imagen según el tipo y el estado del zombi. */
     private Image obtenerImagenZombi(Zombi zombi) {
         if (zombi instanceof ZombiCaraCono) {
             ZombiCaraCono cono = (ZombiCaraCono) zombi;
@@ -1592,14 +1541,23 @@ public class PanelPartida extends JPanel {
         return imagenZombiNormal;
     }
 
-    /** Imagen opcional: permite arrancar aunque falte algún recurso gráfico. */
-    private Image cargarImagenOpcional(String ruta, Image alternativa) {
-        ImageIcon icono = new ImageIcon(ruta);
-        if (icono.getIconWidth() > 0 && icono.getIconHeight() > 0) {
-            return icono.getImage();
+    private Image cargarImagen(String ruta) {
+        URL url = getClass().getResource(ruta);
+        if (url == null) {
+            System.err.println("No se encontró la imagen: " + ruta);
+            return null;
         }
-        System.err.println("No se encontró la imagen opcional: " + ruta);
-        return alternativa;
+        ImageIcon icono = new ImageIcon(url);
+        if (icono.getIconWidth() <= 0 || icono.getIconHeight() <= 0) {
+            System.err.println("No se pudo cargar la imagen: " + ruta);
+            return null;
+        }
+        return icono.getImage();
+    }
+
+    private Image cargarImagenOpcional(String ruta, Image alternativa) {
+        Image imagen = cargarImagen(ruta);
+        return imagen != null ? imagen : alternativa;
     }
 
     private void detenerGeneradorCerebros() {

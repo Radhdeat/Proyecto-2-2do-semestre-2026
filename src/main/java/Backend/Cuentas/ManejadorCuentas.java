@@ -1,12 +1,11 @@
 package Backend.Cuentas;
 
-// importamos todo para trabajar archivos binarios
 import Backend.Extructuras.ListaDinamica;
 // es para leer lineas de codigo completa
 import java.io.BufferedReader;
 //Es para escribir lineas de codigos completas
 import java.io.BufferedWriter;
-// permite ver si un archivo extiste
+// permite representar rutas y directoriso
 import java.io.File;
 // permite leer flujos de caracteres
 import java.io.FileReader;
@@ -211,7 +210,7 @@ public class ManejadorCuentas {
         try (BufferedReader br = new BufferedReader(new FileReader(archivo))) {
             // se crea una variable que representan la linea que se esta leyendo
             String linea;
-            // se cerrara cuando el archivo sea distinto a nulo
+            // Leemos líneas hasta llegar al final del archivo
             while ((linea = br.readLine()) != null) {
                 // se usa la linea en partes usando el igual para separarlos
                 String[] partes = linea.split("=");
@@ -220,7 +219,7 @@ public class ManejadorCuentas {
                     // se usa la primera parte y elimina los espacios en blanco
                     String clave = partes[0].trim();
 
-                    // borra los espacios en blanco y lo convierte en texto entero
+                    // Convertimos el valor de texto a un número entero
                     int valor = Integer.parseInt(partes[1].trim());
 
                     switch (clave) {
@@ -248,7 +247,7 @@ public class ManejadorCuentas {
     public void guardarEstadisticasTxt(Cuenta cuenta) {
         // construye una ruta para el archivo
         File archivo = new File(DATOS_CUENTA + "/" + cuenta.getNombrePartida(), "Estadisticas.txt");
-        // imprime caracteres
+        // Abrimos el archivo para escribir estadísticas en formato de texto
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(archivo))) {
             bw.write("partidasJugadas=" + cuenta.getPartidasJugadas());
             bw.newLine();
@@ -268,91 +267,6 @@ public class ManejadorCuentas {
             // try por en caso de que exista un error de escritura
         } catch (IOException e) {
             System.err.println("Error al guardar la estadistica de " + cuenta.getNombrePartida() + ": " + e.getMessage());
-        }
-    }
-
-    // Obtiene los nombres de los archivos de partidas guardadas como un arreglo nativo
-    public String[] obtenerPartidasGuardadas(String nickname) {
-        File carpetaPartidas = new File(DATOS_CUENTA + "/" + nickname + "/partidas");
-
-        // si el archivo no existe o el archivo no es un directorio
-        if (!carpetaPartidas.exists() || !carpetaPartidas.isDirectory()) {
-            return new String[0];
-        }
-
-        // obtiene las entradas de las carpetas
-        File[] archivos = carpetaPartidas.listFiles();
-        // si el archivo es nulo o tiene un arreglo 0 devueve otro arreglo 0
-        if (archivos == null || archivos.length == 0) {
-            return new String[0];
-        }
-
-        // Contar archivos válidos para inicializar el arreglo nativo
-        int contador = 0;
-        // recorre el arreglo de los archivos
-        for (int i = 0; i < archivos.length; i++) {
-            // si una entrada es un arcihvo entonces lo guarda en el arreglo
-            if (archivos[i].isFile()) {
-                // aumenta el contador
-                contador++;
-            }
-        }
-
-        // crea un arreglo en el cual se guardaran los nombres de los archivos
-        String[] nombresPartidas = new String[contador];
-        // crea un indice
-        int idx = 0;
-
-        for (int i = 0; i < archivos.length; i++) {
-            // si la entrada es un arvhivo entonces se guarda
-            if (archivos[i].isFile()) {
-                // guarda el nombre del archivo
-                nombresPartidas[idx++] = archivos[i].getName();
-            }
-        }
-
-        return nombresPartidas;
-    }
-
-    // Guardar estadísticas para todas las cuentas
-    public void guardarTodas() {
-        for (int i = 0; i < cuentas.getTamaño(); i++) {
-            guardarEstadisticasTxt(cuentas.obtener(i));
-        }
-    }
-
-    // crea un metodo el cual devuelve los objetos de cuenta
-    public ListaDinamica<Cuenta> getCuentas() {
-        return cuentas;
-    }
-
-    // Lee el contenido de un archivo de partida guardada
-    public String cargarPartida(String nombre, String nombreArchivo) {
-        // crea la ruta que quiere leer
-        File archivo = new File(DATOS_CUENTA + "/" + nombre + "/partidas/" + nombreArchivo);
-
-        // si el archivo no cumple con las condiciones entonces retorna nulo
-        if (!archivo.exists() || !archivo.isFile()) {
-            return null;
-        }
-
-        //StringBuilder cre un objeto vacio
-        StringBuilder contenido = new StringBuilder();
-        // Se escriben las lineas de texto
-        try (BufferedReader br = new BufferedReader(new FileReader(archivo))) {
-            // indica en que linea se encuentra
-            String linea;
-            // se repite hasta que la linea sea nula
-            while ((linea = br.readLine()) != null) {
-                // se agrega el \n que representa un salto de linea
-                // acumula la informacion obtenia en la cadena de texto
-                contenido.append(linea).append("\n");
-            }
-            return contenido.toString();
-            // catch por si hay un error
-        } catch (IOException e) {
-            System.err.println("Error al leer la partida " + nombreArchivo + ": " + e.getMessage());
-            return null;
         }
     }
 

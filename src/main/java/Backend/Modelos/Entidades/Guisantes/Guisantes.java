@@ -25,6 +25,7 @@ public class Guisantes {
         this.activo = true;
     }
 
+    // Avanza Siempre que este activo
     public void avanzar() {
 
         if (!activo) {
